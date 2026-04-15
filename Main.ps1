@@ -27,7 +27,7 @@ function Get-KobraAppRoot {
     return (Get-Location).Path
 }
 
-$script:AppVersion   = '1.5.1'
+$script:AppVersion   = '1.5.3'
 $script:DonationUrl  = 'https://ko-fi.com/kobraoptimizer'
 $script:ProjectRoot  = Get-KobraAppRoot
 $script:ModuleRoot   = Join-Path $script:ProjectRoot 'Modules'
@@ -157,7 +157,7 @@ $controlNames = @(
     'StartupList','BtnStartupRefresh','BtnStartupDisable','BtnStartupEnable','ChkStartupShowMicrosoft',
     'BtnWindowsUpdate','BtnWindowsUpdateSettings','BtnWindowsStorage','BtnWindowsApps',
     'BtnWindowsStartupSettings','BtnWindowsGameMode','BtnWindowsGraphics','BtnWindowsPower',
-    'BtnExit','BtnDonate','BtnDisclaimer','BtnToggleLog',
+    'BtnExit','BtnDonate','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
     'MenuFileAnalyze','MenuFileExecute','MenuFileQuickShed','MenuFileBackup','MenuFileExit',
     'MenuToolsLogs','MenuToolsManifests',
     'MenuHelpSupport','MenuHelpDisclaimer','MenuHelpAbout'
@@ -232,6 +232,7 @@ function Set-KobraButtonsEnabled {
     $script:BtnExit.IsEnabled                = $Enabled
     $script:BtnDonate.IsEnabled              = $Enabled
     $script:BtnDisclaimer.IsEnabled          = $Enabled
+    $script:BtnAboutMe.IsEnabled             = $Enabled
     $script:BtnToggleLog.IsEnabled           = $Enabled
     Invoke-KobraUiRefresh
 }
@@ -620,7 +621,7 @@ function Invoke-KobraDonate {
 }
 
 function Show-KobraDisclaimer {
-    $message = @"
+    $message = @'
 KobraOptimizer can modify caches, startup entries, DNS settings, and other system behavior.
 
 Use it carefully and review the Analyze results before running changes.
@@ -628,7 +629,7 @@ Restore points and backup bundles reduce risk, but no warranty is provided.
 Save your work and consider a full system backup before applying advanced tweaks.
 
 Please consider donating $1, $5, or whatever you can to help us keep adding new features and support development.
-"@
+'@
 
     [System.Windows.MessageBox]::Show(
         $message,
@@ -638,20 +639,30 @@ Please consider donating $1, $5, or whatever you can to help us keep adding new 
     ) | Out-Null
 }
 
-function Show-KobraAbout {
-    $message = @"
-KobraOptimizer v$($script:AppVersion)
+function Show-KobraAboutMe {
+    $message = @'
+KobraOptimizer v{0}
 
-Neon-tuned PowerShell + WPF utility for:
-- System cleanup
-- Browser cache cleanup
-- Startup management
-- Network and DNS tuning
-"@
+KobraOptimizer is a free Windows utility built to help everyday users clean clutter, manage startup items, review what will be removed before cleanup, create backups before deeper changes, and quickly reach useful Windows performance settings from one place.
+
+Its goal is simple: make PCs easier to maintain, easier to understand, and easier to keep responsive without burying people in confusing menus or risky mystery tweaks.
+
+Key benefits include:
+- system cleanup with analysis and delete manifests
+- browser cache cleanup that preserves saved logins and bookmarks
+- startup management for reducing boot clutter
+- backup and restore-point friendly workflow before major changes
+- quick access to Windows tools for updates, storage, startup apps, graphics, and power settings
+
+About the creator:
+This project was created by an MCSE with more than 30 years of experience in the technology world. Beyond IT and systems work, he enjoys coding, building useful tools, developing ideas into real products, and spending time appreciating nature.
+
+KobraOptimizer is being developed as a practical, community-friendly utility that stays free to use while continuing to grow with new features and improvements over time.
+'@ -f $script:AppVersion
 
     [System.Windows.MessageBox]::Show(
         $message,
-        'KobraOptimizer - About',
+        'KobraOptimizer - About Me',
         [System.Windows.MessageBoxButton]::OK,
         [System.Windows.MessageBoxImage]::Information
     ) | Out-Null
@@ -851,6 +862,10 @@ $script:BtnDisclaimer.Add_Click({
     Show-KobraDisclaimer
 })
 
+$script:BtnAboutMe.Add_Click({
+    Show-KobraAboutMe
+})
+
 $script:BtnRunSelected.Add_Click({
     Set-KobraButtonsEnabled -Enabled $false
 
@@ -1039,7 +1054,7 @@ $script:MenuToolsLogs.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnOpe
 $script:MenuToolsManifests.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnOpenManifests })
 $script:MenuHelpSupport.Add_Click({ Invoke-KobraDonate })
 $script:MenuHelpDisclaimer.Add_Click({ Show-KobraDisclaimer })
-$script:MenuHelpAbout.Add_Click({ Show-KobraAbout })
+$script:MenuHelpAbout.Add_Click({ Show-KobraAboutMe })
 
 $script:Window.Add_PreviewKeyDown({
     param($sender, $e)
