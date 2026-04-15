@@ -71,6 +71,18 @@ If you enjoy this tool and want to support future updates:
 Your support helps keep the project alive.
 
 ---
+## 📸 Screenshots
+
+### Main Window
+![Main Window](Screenshots/screenshot_main.png)
+
+### Cleanup Module
+![Cleanup](Screenshots/screenshot_cleanup.png)
+
+### About Window
+![About](Screenshots/screenshot_about.png)
+
+---
 
 ## 📜 License
 
