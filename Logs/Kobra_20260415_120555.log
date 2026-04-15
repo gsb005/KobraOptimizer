@@ -1,0 +1,24 @@
+[12:06:03] KobraOptimizer ready.
+[12:06:03] Version: 1.5.1
+[12:06:03] Log file: C:\Users\swhb\Documents\Projects\KobraOptimizer_v1_5_1_package\KobraOptimizer_v1_5_1\Logs\Kobra_20260415_120555.log
+[12:06:03] Backup root: C:\Users\swhb\Documents\Projects\KobraOptimizer_v1_5_1_package\KobraOptimizer_v1_5_1\Backups
+[12:06:03] Manifest root: C:\Temp\KobraOptimizer\Manifests
+[12:06:03] PowerShell: 5.1.26100.7920
+[12:06:03] Admin: True
+[12:06:03] Project root: C:\Users\swhb\Documents\Projects\KobraOptimizer_v1_5_1_package\KobraOptimizer_v1_5_1
+[12:06:03] Font: Consolas
+Tip: Analyze first to estimate reclaimable space.
+Tip: Startup Manager works on Run keys and Startup folders.
+Tip: Analyze writes a delete manifest to C:\Temp\KobraOptimizer\Manifests.
+[12:06:03] Startup entries loaded: 1
+[12:06:07] Opened: Donate
+
+[12:06:45] Starting analysis scan...
+Cleanup targets:
+  User Temp: 57.21 MB (333 items)
+  System Temp: 108.36 MB (56 items)
+  Thumbnail / Icon Cache: 9.06 MB (30 items)
+  Recycle Bin: 0.22 MB (40 items)
+Delete manifest written: C:\Temp\KobraOptimizer\Manifests\DeleteManifest_20260415_120645.txt
+[12:06:46] Estimated reclaimable space: 174.85 MB
+[12:07:17] Exit requested by user.
