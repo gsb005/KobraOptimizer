@@ -46,8 +46,9 @@ Code
 ## 🛠️ How to Run
 
 1. Download the latest release (coming soon)  
-2. Extract the ZIP  
-3. Run:
+2. Extract the ZIP
+3. Open the folder:KobraOptimizer_*release_number
+4. Run:Launch_Kobra.cmd (As Administrator)
 
 Launch_Kobra.cmd
 
