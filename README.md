@@ -1,95 +1,80 @@
-# 🐍 KobraOptimizer  
-### A modular PowerShell + WPF system optimization tool with a neon UI
+🐍 KobraOptimizer v1.5.1
+A lightweight, modular PowerShell-based optimization tool designed to clean, tune, and streamline Windows systems with a simple, intuitive UI.
 
-KobraOptimizer is a Windows optimization utility built with **PowerShell**, **WPF**, and a fully modular architecture.  
-It provides a clean neon‑themed interface and a collection of system‑tuning modules designed to improve performance, reduce clutter, and streamline Windows behavior.
+🖼️ Logo
+Place your logo file inside the repo (e.g., Assets/logo.png) and reference it like this:
 
----
+Code
+![KobraOptimizer Logo](Assets/logo.png)
+🚀 Features
+✔ One‑click system cleanup
 
-## ✨ Features
+✔ Modular design (easy to add/remove modules)
 
-- ⚡ **Modular architecture** — each optimization lives in its own PowerShell module  
-- 🖥️ **Neon WPF UI** — modern, glowing interface  
-- 🚀 **System cleanup tools** — temp files, logs, caches, browser junk  
-- 🌐 **Network tweaks** — DNS, latency, connectivity improvements  
-- 🧹 **Startup manager** — disable unnecessary startup apps  
-- 🛠️ **OEM bloat removal** — remove manufacturer‑installed junk  
-- 🌍 **Browser cleanup** — Chrome, Edge, Firefox  
-- 📦 **Portable build** — no installation required  
-- 🔧 **EXE builder script** — package your tool into a standalone executable  
+✔ Simple and clean UI
 
----
+✔ Logging system for debugging
 
-## 📁 Project Structure
+✔ About window with version info
 
+✔ Screenshot gallery included
+
+📸 Screenshots
+Main Window
+Code
+![Main Window](Screenshots/screenshot_main.png)
+Cleanup Module
+Code
+![Cleanup Module](Screenshots/screenshot_cleanup.png)
+About Window
+Code
+![About Window](Screenshots/screenshot_about.png)
+📦 Installation
+Download the latest release from the Releases tab
+
+Extract the ZIP
+
+Run Main.ps1
+
+Enjoy a cleaner, faster system
+
+🛠️ Requirements
+Windows 10 or 11
+
+PowerShell 5.1+
+
+Execution policy allowing script execution
+(Run PowerShell as admin → Set-ExecutionPolicy RemoteSigned)
+
+🧩 Project Structure
+Code
 KobraOptimizer/
 │
-├── Assets/
-├── Logs/
-├── Modules/
-│   ├── Kobra_Browsers.psm1
-│   ├── Kobra_Cleanup.psm1
-│   ├── Kobra_Network.psm1
-│   ├── Kobra_OEM.psm1
-│   └── Kobra_Startup.psm1
-│
-├── Main.ps1
-├── Kobra_UI.xaml
-├── Build_KobraExe.ps1
-├── Launch_Kobra.cmd
-└── Release_Notes_v1_5_1.md
+├── Assets/              # Images, icons, logos
+├── Logs/                # Runtime logs (ignored by Git)
+├── Modules/             # Optimization modules
+├── Screenshots/         # UI screenshots
+├── Kobra_UI.xaml        # UI layout
+├── Main.ps1             # Main application logic
+└── README.md            # Documentation
+📝 Changelog
+v1.5.1
+Added About window
 
-Code
+Added screenshots
 
----
+Cleaned up UI
 
-## 🛠️ How to Run
+Added .gitignore to protect logs
 
-1. Download the latest release (coming soon)  
-2. Extract the ZIP
-3. Open the folder:KobraOptimizer_*release_number
-4. Run:Launch_Kobra.cmd (As Administrator)
+Repo structure improvements
 
-Launch_Kobra.cmd
+🤝 Contributing
+Pull requests are welcome.
+For major changes, please open an issue first to discuss what you’d like to change.
 
-Code
-
-or directly:
-
-powershell.exe -ExecutionPolicy Bypass -File .\Main.ps1
-
-Code
-
----
-
-## ❤️ Support Development
-
-If you enjoy this tool and want to support future updates:
-
-👉 **https://ko-fi.com/kobraoptimizer**
-
-Your support helps keep the project alive.
-
----
-## 📸 Screenshots
-
-### Main Window
-![Main Window](Screenshots/screenshot_main.png)
-
-### Cleanup Module
-![Cleanup](Screenshots/screenshot_cleanup.png)
-
-### About Window
-![About](Screenshots/screenshot_about.png)
-
----
-
-## 📜 License
-
-This project is licensed under the **MIT License**.  
-See the `LICENSE` file for details.
-
----
+📄 License
+MIT License — see LICENSE for details.
 
 ## 📣 Credits
 
