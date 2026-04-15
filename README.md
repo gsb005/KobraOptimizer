@@ -1,6 +1,21 @@
 🐍 KobraOptimizer v1.5.1
 A lightweight, modular PowerShell-based optimization tool designed to clean, tune, and streamline Windows systems with a simple, intuitive UI.
 
+▶️ Launching KobraOptimizer
+You can start the tool in two ways:
+
+Option 1 — Run the PowerShell script
+Right‑click Main.ps1 → Run with PowerShell
+
+Option 2 — Easiest method (Recommended)
+Use the included launcher:
+
+Code
+Launch_Kobra.cmd
+Right‑click → Run as Administrator
+
+This automatically starts the optimizer without requiring users to touch PowerShell settings.
+
 🖼️ Logo
 Place your logo file inside the repo (e.g., Assets/logo.png) and reference it like this:
 
