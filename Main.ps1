@@ -1,6 +1,6 @@
 #requires -Version 5.1
 # ==============================================================================
-# KobraOptimizer v1.5.0 - Main Launcher
+# KobraOptimizer v1.6.0 - Main Launcher
 # Neon UI pass + classic menu bar + toggleable log panel + laptop-friendly fit
 # ==============================================================================
 
@@ -27,7 +27,7 @@ function Get-KobraAppRoot {
     return (Get-Location).Path
 }
 
-$script:AppVersion   = '1.5.3'
+$script:AppVersion   = '1.6.0'
 $script:DonationUrl  = 'https://ko-fi.com/kobraoptimizer'
 $script:ProjectRoot  = Get-KobraAppRoot
 $script:ModuleRoot   = Join-Path $script:ProjectRoot 'Modules'
@@ -150,10 +150,10 @@ catch {
 
 $controlNames = @(
     'BtnAnalyze','BtnRunSelected','BtnQuickShed','BtnCreateBackup','BtnOpenLogs','BtnOpenManifests',
-    'StatusTextBox','ProgBar','KobraLogo',
+    'StatusTextBox','ProgBar','KobraLogo','ResultsList','TxtResultsHeadline','TxtResultsSubHeadline',
     'ChkRestorePoint','ChkRegistry','ChkNetwork','ChkDnsFlush','ChkDnsProfile','ChkHPDebloat',
     'ChkUserTemp','ChkSystemTemp','ChkWinUpdate','ChkThumbCache','ChkShaderCache','ChkRecycleBin',
-    'ChkChrome','ChkEdge','ChkFirefox','CmbDnsProvider',
+    'ChkChrome','ChkEdge','ChkFirefox','ChkBrowserCookies','CmbDnsProvider',
     'StartupList','BtnStartupRefresh','BtnStartupDisable','BtnStartupEnable','ChkStartupShowMicrosoft',
     'BtnWindowsUpdate','BtnWindowsUpdateSettings','BtnWindowsStorage','BtnWindowsApps',
     'BtnWindowsStartupSettings','BtnWindowsGameMode','BtnWindowsGraphics','BtnWindowsPower',
@@ -333,7 +333,8 @@ function Get-KobraSafeMeasureSum {
 function New-KobraDeleteManifest {
     param(
         [string[]]$CleanupTargets,
-        [string[]]$BrowserTargets
+        [string[]]$BrowserTargets,
+        [string[]]$BrowserComponents = @('Cache')
     )
 
     $cleanupCandidates = @()
@@ -343,7 +344,7 @@ function New-KobraDeleteManifest {
         $cleanupCandidates = @(Get-KobraCleanupCandidates -Targets $CleanupTargets)
     }
     if ((Get-KobraSafeCount $BrowserTargets) -gt 0) {
-        $browserCandidates = @(Get-KobraBrowserCandidates -Browsers $BrowserTargets)
+        $browserCandidates = @(Get-KobraBrowserCandidates -Browsers $BrowserTargets -Components $BrowserComponents)
     }
 
     $allCandidates = @($cleanupCandidates) + @($browserCandidates)
@@ -370,6 +371,9 @@ function New-KobraDeleteManifest {
     if ((Get-KobraSafeCount $BrowserTargets) -gt 0) {
         $lines.Add('Browser Targets:')
         foreach ($target in $BrowserTargets) { $lines.Add(('  - {0}' -f $target)) }
+        if ((Get-KobraSafeCount $BrowserComponents) -gt 0) {
+            $lines.Add(('  Components: {0}' -f ($BrowserComponents -join ', ')))
+        }
         $lines.Add('')
     }
 
@@ -396,12 +400,30 @@ function New-KobraDeleteManifest {
     Set-Content -Path $manifestPath -Value $lines -Encoding UTF8
     Copy-Item -LiteralPath $manifestPath -Destination $latestPath -Force
 
+    $summary = @()
+    foreach ($group in @($allCandidates | Group-Object Category)) {
+        $groupItems = @($group.Group)
+        $firstItem = $groupItems | Select-Object -First 1
+        $note = ''
+        if ($null -ne $firstItem -and ($firstItem.PSObject.Properties.Name -contains 'Note')) {
+            $note = [string]$firstItem.Note
+        }
+
+        $summary += [pscustomobject]@{
+            Category  = $group.Name
+            Items     = @($groupItems).Count
+            SizeBytes = Get-KobraSafeMeasureSum -Items $groupItems -PropertyName 'SizeBytes'
+            Note      = $note
+        }
+    }
+
     [pscustomobject]@{
         ManifestPath    = $manifestPath
         LatestPath      = $latestPath
         CandidateCount  = (Get-KobraSafeCount $allCandidates)
         TotalBytes      = $totalBytes
         TotalMB         = [Math]::Round(($totalBytes / 1MB), 2)
+        CategorySummary = $summary
     }
 }
 
@@ -409,6 +431,7 @@ function Show-KobraExecutionConfirmation {
     param(
         [string[]]$CleanupTargets,
         [string[]]$BrowserTargets,
+        [string[]]$BrowserComponents = @('Cache'),
         [bool]$DoTls,
         [bool]$DoNetwork,
         [bool]$DoDnsFlush,
@@ -424,7 +447,8 @@ function Show-KobraExecutionConfirmation {
         $actions.Add(('Cleanup: {0}' -f (($CleanupTargets -join ', '))))
     }
     if ((Get-KobraSafeCount $BrowserTargets) -gt 0) {
-        $actions.Add(('Browser cleanup: {0}' -f (($BrowserTargets -join ', '))))
+        $componentLabel = if ((Get-KobraSafeCount $BrowserComponents) -gt 0) { $BrowserComponents -join ' + ' } else { 'Cache' }
+        $actions.Add(('Browser cleanup ({0}): {1}' -f $componentLabel, ($BrowserTargets -join ', ')))
     }
     if ($DoTls) { $actions.Add('TLS hardening') }
     if ($DoNetwork) { $actions.Add('Network TCP strike') }
@@ -493,6 +517,14 @@ function Get-KobraBrowserTargetsFromUi {
     return $browsers
 }
 
+function Get-KobraBrowserComponentsFromUi {
+    $components = @('Cache')
+    if ($script:ChkBrowserCookies.IsChecked) {
+        $components += 'Cookies'
+    }
+    return $components
+}
+
 function Get-KobraSelectedDnsProfile {
     switch ($script:CmbDnsProvider.SelectedIndex) {
         0 { return 'Cloudflare' }
@@ -500,6 +532,58 @@ function Get-KobraSelectedDnsProfile {
         2 { return 'Automatic' }
         default { return 'Cloudflare' }
     }
+}
+
+
+function Get-KobraResultNote {
+    param(
+        [string]$Category,
+        [string]$ExistingNote = ''
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ExistingNote)) {
+        return $ExistingNote
+    }
+
+    switch -Wildcard ($Category) {
+        '*Shader Cache' { return 'Rebuilds on next game launch' }
+        '*Windows Update Cache' { return 'Windows may rebuild cache later' }
+        '*Cookies' { return 'May sign you out of websites' }
+        default { return '' }
+    }
+}
+
+function Update-KobraResultsPanel {
+    param(
+        [object[]]$CategorySummary,
+        [int]$TotalRecords = 0,
+        [int64]$TotalBytes = 0
+    )
+
+    $bindingList = New-Object System.Collections.ArrayList
+    foreach ($item in @($CategorySummary | Sort-Object SizeBytes -Descending)) {
+        if ($null -eq $item) { continue }
+        [void]$bindingList.Add([pscustomobject]@{
+            Category = $item.Category
+            ItemsText = ('{0:N0}' -f $item.Items)
+            SizeText  = ('{0:N2} MB' -f ($item.SizeBytes / 1MB))
+            Note      = (Get-KobraResultNote -Category $item.Category -ExistingNote ($item.Note -as [string]))
+        })
+    }
+
+    $script:ResultsList.ItemsSource = $null
+    $script:ResultsList.ItemsSource = $bindingList
+
+    if ($TotalRecords -gt 0) {
+        $script:TxtResultsHeadline.Text = ('{0:N0} records can be removed' -f $TotalRecords)
+        $script:TxtResultsSubHeadline.Text = ('Estimated reclaimable space: {0:N2} MB across {1} categories.' -f ($TotalBytes / 1MB), $bindingList.Count)
+    }
+    else {
+        $script:TxtResultsHeadline.Text = 'No removable records detected'
+        $script:TxtResultsSubHeadline.Text = 'Analyze scanned the current selections but did not find removable records.'
+    }
+
+    Invoke-KobraUiRefresh
 }
 
 function Convert-KobraWhiteToTransparent {
@@ -712,6 +796,7 @@ Write-KobraUiLog -Message ("Font: {0}" -f $fontUsed)
 Write-KobraUiLog -Message 'Tip: Analyze first to estimate reclaimable space.' -NoTimestamp
 Write-KobraUiLog -Message 'Tip: Startup Manager works on Run keys and Startup folders.' -NoTimestamp
 Write-KobraUiLog -Message 'Tip: Analyze writes a delete manifest to C:\Temp\KobraOptimizer\Manifests.' -NoTimestamp
+Update-KobraResultsPanel -CategorySummary @() -TotalRecords 0 -TotalBytes 0
 
 $script:ChkDnsProfile.Add_Click({ Update-KobraDnsControls })
 $script:ChkStartupShowMicrosoft.Add_Click({ Refresh-KobraStartupList })
@@ -731,9 +816,10 @@ $script:BtnAnalyze.Add_Click({
 
         $cleanupPreview = @(Get-KobraCleanupPreview -Targets $cleanupTargets)
         $browserTargets = @(Get-KobraBrowserTargetsFromUi)
+        $browserComponents = @(Get-KobraBrowserComponentsFromUi)
         $browserPreview = @()
         if ((Get-KobraSafeCount $browserTargets) -gt 0) {
-            $browserPreview = @(Get-KobraBrowserPreview -Browsers $browserTargets)
+            $browserPreview = @(Get-KobraBrowserPreview -Browsers $browserTargets -Components $browserComponents)
         }
 
         $totalBytes = [int64]0
@@ -750,9 +836,12 @@ $script:BtnAnalyze.Add_Click({
             foreach ($item in $browserPreview) {
                 if ($null -eq $item) { continue }
                 $totalBytes += Get-KobraSafeInt64 $item.SizeBytes
-                Write-KobraUiLog -Message ("  {0}: {1:N2} MB" -f $item.Name, [double]$item.SizeMB) -NoTimestamp
+                Write-KobraUiLog -Message ("  {0}: {1:N2} MB ({2:N0} records)" -f $item.Name, [double]$item.SizeMB, (Get-KobraSafeInt64 $item.Items)) -NoTimestamp
+                if (-not [string]::IsNullOrWhiteSpace(($item.Note -as [string]))) {
+                    Write-KobraUiLog -Message ("    Note: {0}" -f $item.Note) -NoTimestamp
+                }
             }
-            Write-KobraUiLog -Message 'Passwords, bookmarks, and saved logins are preserved.' -NoTimestamp
+            Write-KobraUiLog -Message 'Saved passwords and bookmarks are preserved. Cookie cleaning may sign you out of sites.' -NoTimestamp
         }
 
         if ($script:ChkDnsProfile.IsChecked) {
@@ -767,9 +856,11 @@ $script:BtnAnalyze.Add_Click({
             }
         }
 
-        $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets
+        $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents
+        Update-KobraResultsPanel -CategorySummary $manifest.CategorySummary -TotalRecords $manifest.CandidateCount -TotalBytes $manifest.TotalBytes
         Write-KobraUiLog -Message ("Delete manifest written: {0}" -f $manifest.ManifestPath) -NoTimestamp
         Write-KobraUiLog -Message ("Estimated reclaimable space: {0:N2} MB" -f ($totalBytes / 1MB))
+        Write-KobraUiLog -Message ("Estimated removable records: {0:N0}" -f $manifest.CandidateCount)
         Set-KobraProgress 100
     }
     catch {
@@ -787,9 +878,9 @@ $script:BtnQuickShed.Add_Click({
 
     try {
         $defaultTargets = @('UserTemp','SystemTemp','ThumbnailCache','ShaderCache','RecycleBin')
-        $manifest = New-KobraDeleteManifest -CleanupTargets $defaultTargets -BrowserTargets @()
+        $manifest = New-KobraDeleteManifest -CleanupTargets $defaultTargets -BrowserTargets @() -BrowserComponents @('Cache')
 
-        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $defaultTargets -BrowserTargets @() -DoTls $false -DoNetwork $false -DoDnsFlush $false -DoDnsProfile $false -DoHpDebloat $false -DoRestore $false -DnsProfile '' -ManifestInfo $manifest
+        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $defaultTargets -BrowserTargets @() -BrowserComponents @('Cache') -DoTls $false -DoNetwork $false -DoDnsFlush $false -DoDnsProfile $false -DoHpDebloat $false -DoRestore $false -DnsProfile '' -ManifestInfo $manifest
         if (-not $confirmed) {
             Write-KobraUiLog -Message 'Quick Shed canceled by user.' -BlankLine
             Set-KobraProgress 0
@@ -872,6 +963,7 @@ $script:BtnRunSelected.Add_Click({
     try {
         $cleanupTargets = @(Get-KobraCleanupTargetsFromUi)
         $browserTargets = @(Get-KobraBrowserTargetsFromUi)
+        $browserComponents = @(Get-KobraBrowserComponentsFromUi)
         $doTls         = [bool]$script:ChkRegistry.IsChecked
         $doNetwork     = [bool]$script:ChkNetwork.IsChecked
         $doDnsFlush    = [bool]$script:ChkDnsFlush.IsChecked
@@ -896,8 +988,8 @@ $script:BtnRunSelected.Add_Click({
             return
         }
 
-        $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets
-        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -DoTls $doTls -DoNetwork $doNetwork -DoDnsFlush $doDnsFlush -DoDnsProfile $doDnsProfile -DoHpDebloat $doHpDebloat -DoRestore $doRestore -DnsProfile $dnsProfile -ManifestInfo $manifest
+        $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents
+        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents -DoTls $doTls -DoNetwork $doNetwork -DoDnsFlush $doDnsFlush -DoDnsProfile $doDnsProfile -DoHpDebloat $doHpDebloat -DoRestore $doRestore -DnsProfile $dnsProfile -ManifestInfo $manifest
         if (-not $confirmed) {
             Write-KobraUiLog -Message 'Execution canceled by user.' -BlankLine
             Set-KobraProgress 0
@@ -923,7 +1015,7 @@ $script:BtnRunSelected.Add_Click({
         }
 
         if ((Get-KobraSafeCount $browserTargets) -gt 0) {
-            Invoke-KobraBrowserCleanup -Browsers $browserTargets -Log ${function:Write-KobraUiLog}
+            Invoke-KobraBrowserCleanup -Browsers $browserTargets -Components $browserComponents -Log ${function:Write-KobraUiLog}
             $currentStep++
             Set-KobraProgress ([math]::Round(($currentStep / $stepCount) * 100))
         }

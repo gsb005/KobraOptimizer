@@ -474,12 +474,13 @@
                                 </StackPanel>
                             </GroupBox>
 
-                            <GroupBox Header="Browser Cache Cleanup">
+                            <GroupBox Header="Browser Cleanup">
                                 <StackPanel>
                                     <CheckBox Name="ChkChrome" Content="Google Chrome"/>
                                     <CheckBox Name="ChkEdge" Content="Microsoft Edge"/>
                                     <CheckBox Name="ChkFirefox" Content="Firefox"/>
-                                    <TextBlock Text="Preserves saved passwords, bookmarks, and profile databases." TextWrapping="Wrap" Foreground="#CFCFCF" FontSize="12" Margin="0,10,0,0"/>
+                                    <CheckBox Name="ChkBrowserCookies" Content="Also clean cookies (signs you out of sites)" Margin="0,10,0,0"/>
+                                    <TextBlock Text="Cache cleanup preserves saved passwords and bookmarks. Cookie cleanup removes site sessions and preferences for selected browsers." TextWrapping="Wrap" Foreground="#CFCFCF" FontSize="12" Margin="0,10,0,0"/>
                                 </StackPanel>
                             </GroupBox>
 
@@ -537,11 +538,21 @@
                                 </UniformGrid>
                             </GroupBox>
 
-                            <GroupBox Header="Compatibility Notes">
+                            <GroupBox Header="Analyze Results">
                                 <StackPanel>
-                                    <TextBlock Text="• Startup manager shows Run keys and Startup folders, with disabled items preserved for re-enable." TextWrapping="Wrap" Foreground="#CFCFCF" FontSize="12"/>
-                                    <TextBlock Text="• Open the Windows Tools section for safe settings pages instead of forcing unknown tweaks." TextWrapping="Wrap" Foreground="#CFCFCF" FontSize="12" Margin="0,8,0,0"/>
-                                    <TextBlock Text="• Use Analyze before Execute so the user can see estimated impact and review the manifest." TextWrapping="Wrap" Foreground="#CFCFCF" FontSize="12" Margin="0,8,0,0"/>
+                                    <TextBlock Name="TxtResultsHeadline" Text="Analyze to see removable records" Foreground="#00FF41" FontSize="18" FontWeight="Bold"/>
+                                    <TextBlock Name="TxtResultsSubHeadline" Text="Your selected cleanup categories will appear here with record counts and sizes." TextWrapping="Wrap" Foreground="#CFCFCF" FontSize="12" Margin="0,6,0,12"/>
+                                    <ListView Name="ResultsList" Height="230" IsHitTestVisible="False">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="Category" DisplayMemberBinding="{Binding Category}" Width="170"/>
+                                                <GridViewColumn Header="Items" DisplayMemberBinding="{Binding ItemsText}" Width="80"/>
+                                                <GridViewColumn Header="Size" DisplayMemberBinding="{Binding SizeText}" Width="95"/>
+                                                <GridViewColumn Header="Notes" DisplayMemberBinding="{Binding Note}" Width="220"/>
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                    <TextBlock Text="Analyze fills this panel from your current selections. Execute Selected still follows the checkboxes above." TextWrapping="Wrap" Foreground="#CFCFCF" FontSize="12" Margin="0,10,0,0"/>
                                 </StackPanel>
                             </GroupBox>
                         </StackPanel>
@@ -584,7 +595,7 @@
                         <Button Name="BtnDisclaimer" Content="Disclaimer" Style="{StaticResource KobraToolButtonStyle}" Width="110" Margin="0,0,8,0" ToolTip="Show the disclaimer for KobraOptimizer."/>
                         <Button Name="BtnAboutMe" Content="About Me" Style="{StaticResource KobraToolButtonStyle}" Width="120" ToolTip="Learn about KobraOptimizer and its creator."/>
                     </StackPanel>
-                    <TextBlock Text="KobraOptimizer v1.5.3  |  Modular PowerShell + WPF" Foreground="#8D8D8D" FontSize="11" HorizontalAlignment="Right" DockPanel.Dock="Right"/>
+                    <TextBlock Text="KobraOptimizer v1.6.0  |  Modular PowerShell + WPF" Foreground="#8D8D8D" FontSize="11" HorizontalAlignment="Right" DockPanel.Dock="Right"/>
                 </DockPanel>
             </StackPanel>
         </Grid>
