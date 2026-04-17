@@ -27,7 +27,7 @@ function Get-KobraAppRoot {
     return (Get-Location).Path
 }
 
-$script:AppVersion   = '1.6.0'
+$script:AppVersion   = '1.7.0'
 $script:DonationUrl  = 'https://ko-fi.com/kobraoptimizer'
 $script:ProjectRoot  = Get-KobraAppRoot
 $script:ModuleRoot   = Join-Path $script:ProjectRoot 'Modules'
@@ -160,7 +160,12 @@ $controlNames = @(
     'BtnExit','BtnDonate','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
     'MenuFileAnalyze','MenuFileExecute','MenuFileQuickShed','MenuFileBackup','MenuFileExit',
     'MenuToolsLogs','MenuToolsManifests',
-    'MenuHelpSupport','MenuHelpDisclaimer','MenuHelpAbout'
+    'MenuHelpSupport','MenuHelpDisclaimer','MenuHelpAbout',
+    'BtnNavDashboard','BtnNavAnalyze','BtnNavResults','BtnNavTools',
+    'ViewDashboard','ViewAnalyze','ViewResults','ViewTools',
+    'BtnDashboardAnalyze','BtnDashboardQuickShed','BtnDashboardBackup','BtnDashboardViewResults',
+    'TxtDashLastScan','TxtDashReclaimable','TxtDashRecords','TxtDashCategories','TxtDashSelections','TxtDashSafety','TxtRecentActivity',
+    'TxtAnalyzeStage','TxtAnalyzeSubStage','TxtSelectedCategoryCount','TxtSelectedRecordCount','TxtSelectedBytes','TxtSelectedWarnings'
 )
 
 foreach ($name in $controlNames) {
@@ -168,6 +173,10 @@ foreach ($name in $controlNames) {
 }
 
 $script:LogRow = $script:Window.FindName('LogRow')
+$script:RecentActivityMax = 6
+$script:LastAnalyzeManifest = $null
+$script:LastAnalyzeTime = $null
+$script:CurrentView = 'Dashboard'
 
 function Invoke-KobraUiRefresh {
     $null = $script:Window.Dispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Render)
@@ -196,6 +205,7 @@ function Write-KobraUiLog {
     $script:StatusTextBox.AppendText($line + "`r`n")
     $script:StatusTextBox.ScrollToEnd()
     Add-Content -Path $script:LogFile -Value $line
+    Update-KobraRecentActivity
     Invoke-KobraUiRefresh
 }
 
@@ -219,21 +229,23 @@ function Set-KobraProgress {
 function Set-KobraButtonsEnabled {
     param([bool]$Enabled)
 
-    $script:BtnAnalyze.IsEnabled             = $Enabled
-    $script:BtnRunSelected.IsEnabled         = $Enabled
-    $script:BtnQuickShed.IsEnabled           = $Enabled
-    $script:BtnCreateBackup.IsEnabled        = $Enabled
-    $script:BtnOpenLogs.IsEnabled            = $Enabled
-    $script:BtnOpenManifests.IsEnabled       = $Enabled
-    $script:BtnStartupRefresh.IsEnabled      = $Enabled
-    $script:BtnStartupDisable.IsEnabled      = $Enabled
-    $script:BtnStartupEnable.IsEnabled       = $Enabled
-    $script:ChkStartupShowMicrosoft.IsEnabled = $Enabled
-    $script:BtnExit.IsEnabled                = $Enabled
-    $script:BtnDonate.IsEnabled              = $Enabled
-    $script:BtnDisclaimer.IsEnabled          = $Enabled
-    $script:BtnAboutMe.IsEnabled             = $Enabled
-    $script:BtnToggleLog.IsEnabled           = $Enabled
+    $buttonNames = @(
+        'BtnAnalyze','BtnRunSelected','BtnQuickShed','BtnCreateBackup','BtnOpenLogs','BtnOpenManifests',
+        'BtnStartupRefresh','BtnStartupDisable','BtnStartupEnable',
+        'BtnExit','BtnDonate','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
+        'BtnNavDashboard','BtnNavAnalyze','BtnNavResults','BtnNavTools',
+        'BtnDashboardAnalyze','BtnDashboardQuickShed','BtnDashboardBackup','BtnDashboardViewResults'
+    )
+
+    foreach ($name in $buttonNames) {
+        $control = Get-Variable -Scope Script -Name $name -ValueOnly -ErrorAction SilentlyContinue
+        if ($null -ne $control) { $control.IsEnabled = $Enabled }
+    }
+
+    if ($null -ne $script:ChkStartupShowMicrosoft) {
+        $script:ChkStartupShowMicrosoft.IsEnabled = $Enabled
+    }
+
     Invoke-KobraUiRefresh
 }
 
@@ -583,6 +595,179 @@ function Update-KobraResultsPanel {
         $script:TxtResultsSubHeadline.Text = 'Analyze scanned the current selections but did not find removable records.'
     }
 
+    Update-KobraSelectionSummary
+    Update-KobraDashboard
+    Invoke-KobraUiRefresh
+}
+
+
+function Resolve-KobraCategorySelected {
+    param([string]$Category)
+
+    switch -Wildcard ($Category) {
+        'User Temp' { return [bool]$script:ChkUserTemp.IsChecked }
+        'System Temp' { return [bool]$script:ChkSystemTemp.IsChecked }
+        'Windows Update Cache' { return [bool]$script:ChkWinUpdate.IsChecked }
+        'Thumbnail / Icon Cache' { return [bool]$script:ChkThumbCache.IsChecked }
+        'DirectX Shader Cache' { return [bool]$script:ChkShaderCache.IsChecked }
+        'Recycle Bin' { return [bool]$script:ChkRecycleBin.IsChecked }
+        '*Chrome Cache' { return [bool]$script:ChkChrome.IsChecked }
+        '*Edge Cache' { return [bool]$script:ChkEdge.IsChecked }
+        '*Firefox Cache' { return [bool]$script:ChkFirefox.IsChecked }
+        '*Chrome Cookies' { return ([bool]$script:ChkChrome.IsChecked -and [bool]$script:ChkBrowserCookies.IsChecked) }
+        '*Edge Cookies' { return ([bool]$script:ChkEdge.IsChecked -and [bool]$script:ChkBrowserCookies.IsChecked) }
+        '*Firefox Cookies' { return ([bool]$script:ChkFirefox.IsChecked -and [bool]$script:ChkBrowserCookies.IsChecked) }
+        default { return $true }
+    }
+}
+
+function Get-KobraLatestBackupPath {
+    if (-not (Test-Path -LiteralPath $script:BackupRoot)) { return $null }
+    $latest = Get-ChildItem -LiteralPath $script:BackupRoot -Directory -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($latest) { return $latest.FullName }
+    return $null
+}
+
+function Update-KobraRecentActivity {
+    if ($null -eq $script:TxtRecentActivity -or $null -eq $script:StatusTextBox) { return }
+    $lines = @($script:StatusTextBox.Text -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($lines.Count -eq 0) {
+        $script:TxtRecentActivity.Text = 'No recent activity yet.'
+        return
+    }
+    $script:TxtRecentActivity.Text = (($lines | Select-Object -Last $script:RecentActivityMax) -join "`r`n")
+}
+
+function Update-KobraSelectionSummary {
+    if ($null -eq $script:TxtSelectedCategoryCount) { return }
+
+    $selectedCategories = 0
+    $selectedRecords = 0
+    [int64]$selectedBytes = 0
+    $warnings = New-Object System.Collections.Generic.List[string]
+
+    if ($script:LastAnalyzeManifest -and $script:LastAnalyzeManifest.CategorySummary) {
+        foreach ($item in @($script:LastAnalyzeManifest.CategorySummary)) {
+            if ($null -eq $item) { continue }
+            if (Resolve-KobraCategorySelected -Category ($item.Category -as [string])) {
+                $selectedCategories++
+                $selectedRecords += [int](Get-KobraSafeInt64 $item.Items)
+                $selectedBytes += Get-KobraSafeInt64 $item.SizeBytes
+                $note = Get-KobraResultNote -Category ($item.Category -as [string]) -ExistingNote ($item.Note -as [string])
+                if (-not [string]::IsNullOrWhiteSpace($note) -and -not $warnings.Contains($note)) {
+                    $warnings.Add($note)
+                }
+            }
+        }
+    }
+
+    if ($selectedCategories -eq 0) {
+        $selectedCategories = (@(Get-KobraCleanupTargetsFromUi) + @(Get-KobraBrowserTargetsFromUi)).Count
+    }
+
+    $script:TxtSelectedCategoryCount.Text = ('{0} categories selected' -f $selectedCategories)
+    $script:TxtSelectedRecordCount.Text = ('{0:N0} records selected' -f $selectedRecords)
+    $script:TxtSelectedBytes.Text = ('{0:N2} MB selected' -f ($selectedBytes / 1MB))
+    $script:TxtSelectedWarnings.Text = if ($warnings.Count -gt 0) { ($warnings -join '  •  ') } else { 'Review the results, then run Clean Selected when you are ready.' }
+}
+
+function Update-KobraDashboard {
+    if ($null -eq $script:TxtDashLastScan) { return }
+
+    if ($script:LastAnalyzeManifest) {
+        $script:TxtDashLastScan.Text = if ($script:LastAnalyzeTime) { $script:LastAnalyzeTime.ToString('MMM d, h:mm tt') } else { 'Moments ago' }
+        $script:TxtDashReclaimable.Text = ('{0:N2} MB' -f ($script:LastAnalyzeManifest.TotalBytes / 1MB))
+        $script:TxtDashRecords.Text = ('{0:N0}' -f $script:LastAnalyzeManifest.CandidateCount)
+        $script:TxtDashCategories.Text = ('{0}' -f (@($script:LastAnalyzeManifest.CategorySummary).Count))
+    }
+    else {
+        $script:TxtDashLastScan.Text = 'No scan yet'
+        $script:TxtDashReclaimable.Text = '--'
+        $script:TxtDashRecords.Text = '--'
+        $script:TxtDashCategories.Text = '--'
+    }
+
+    $selectedCount = (@(Get-KobraCleanupTargetsFromUi) + @(Get-KobraBrowserTargetsFromUi)).Count
+    $script:TxtDashSelections.Text = if ($selectedCount -gt 0) { "$selectedCount active categories are ready for analysis." } else { 'No cleanup categories selected yet.' }
+
+    $latestBackup = Get-KobraLatestBackupPath
+    $script:TxtDashSafety.Text = if ($latestBackup) {
+        'Latest backup: ' + (Split-Path -Leaf $latestBackup)
+    }
+    else {
+        'No backup bundle yet. Create one before deep system changes.'
+    }
+
+    Update-KobraRecentActivity
+}
+
+function Set-KobraAnalyzeStatus {
+    param(
+        [string]$Title,
+        [string]$SubTitle = 'Scanning your selected categories and building a reviewable results set.'
+    )
+
+    if ($null -ne $script:TxtAnalyzeStage) { $script:TxtAnalyzeStage.Text = $Title }
+    if ($null -ne $script:TxtAnalyzeSubStage) { $script:TxtAnalyzeSubStage.Text = $SubTitle }
+    Invoke-KobraUiRefresh
+}
+
+function Set-KobraNavState {
+    param([string]$ActiveView)
+
+    $normalBackground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#1A1A1A'))
+    $normalBorder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#1F1F1F'))
+    $activeBackground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#00FF41'))
+    $activeBorder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#00FF41'))
+    $activeForeground = [System.Windows.Media.Brushes]::Black
+    $normalForeground = [System.Windows.Media.Brushes]::White
+
+    $navMap = @{
+        Dashboard = $script:BtnNavDashboard
+        Analyze   = $script:BtnNavAnalyze
+        Results   = $script:BtnNavResults
+        Tools     = $script:BtnNavTools
+    }
+
+    foreach ($entry in $navMap.GetEnumerator()) {
+        if ($null -eq $entry.Value) { continue }
+        if ($entry.Key -eq $ActiveView) {
+            $entry.Value.Background = $activeBackground
+            $entry.Value.BorderBrush = $activeBorder
+            $entry.Value.Foreground = $activeForeground
+        }
+        else {
+            $entry.Value.Background = $normalBackground
+            $entry.Value.BorderBrush = $normalBorder
+            $entry.Value.Foreground = $normalForeground
+        }
+    }
+}
+
+function Switch-KobraView {
+    param([string]$ViewName)
+
+    $views = @{
+        Dashboard = $script:ViewDashboard
+        Analyze   = $script:ViewAnalyze
+        Results   = $script:ViewResults
+        Tools     = $script:ViewTools
+    }
+
+    foreach ($view in $views.Values) {
+        if ($null -ne $view) { $view.Visibility = 'Collapsed' }
+    }
+
+    if ($views.ContainsKey($ViewName) -and $null -ne $views[$ViewName]) {
+        $views[$ViewName].Visibility = 'Visible'
+        $script:CurrentView = $ViewName
+    }
+
+    Set-KobraNavState -ActiveView $ViewName
+    Update-KobraDashboard
+    Update-KobraSelectionSummary
     Invoke-KobraUiRefresh
 }
 
@@ -797,16 +982,37 @@ Write-KobraUiLog -Message 'Tip: Analyze first to estimate reclaimable space.' -N
 Write-KobraUiLog -Message 'Tip: Startup Manager works on Run keys and Startup folders.' -NoTimestamp
 Write-KobraUiLog -Message 'Tip: Analyze writes a delete manifest to C:\Temp\KobraOptimizer\Manifests.' -NoTimestamp
 Update-KobraResultsPanel -CategorySummary @() -TotalRecords 0 -TotalBytes 0
+Set-KobraAnalyzeStatus -Title 'Ready to analyze' -SubTitle 'Select your cleanup categories, then run Analyze to build a reviewable results screen.'
 
 $script:ChkDnsProfile.Add_Click({ Update-KobraDnsControls })
 $script:ChkStartupShowMicrosoft.Add_Click({ Refresh-KobraStartupList })
 $script:BtnToggleLog.Add_Click({ Toggle-KobraLogPanel })
+$script:BtnNavDashboard.Add_Click({ Switch-KobraView -ViewName 'Dashboard' })
+$script:BtnNavAnalyze.Add_Click({ Switch-KobraView -ViewName 'Analyze' })
+$script:BtnNavResults.Add_Click({ Switch-KobraView -ViewName 'Results' })
+$script:BtnNavTools.Add_Click({ Switch-KobraView -ViewName 'Tools' })
+$script:BtnDashboardAnalyze.Add_Click({ Switch-KobraView -ViewName 'Analyze'; Invoke-KobraButtonClick -Button $script:BtnAnalyze })
+$script:BtnDashboardQuickShed.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnQuickShed })
+$script:BtnDashboardBackup.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnCreateBackup })
+$script:BtnDashboardViewResults.Add_Click({ Switch-KobraView -ViewName 'Results' })
+
+$selectionControls = @(
+    $script:ChkUserTemp,$script:ChkSystemTemp,$script:ChkWinUpdate,$script:ChkThumbCache,$script:ChkShaderCache,$script:ChkRecycleBin,
+    $script:ChkChrome,$script:ChkEdge,$script:ChkFirefox,$script:ChkBrowserCookies
+)
+foreach ($control in $selectionControls) {
+    if ($null -ne $control) {
+        $control.Add_Click({ Update-KobraSelectionSummary; Update-KobraDashboard })
+    }
+}
 
 $script:BtnAnalyze.Add_Click({
     Set-KobraButtonsEnabled -Enabled $false
     Set-KobraProgress 10
 
     try {
+        Switch-KobraView -ViewName 'Analyze'
+        Set-KobraAnalyzeStatus -Title 'Analyzing your system' -SubTitle 'Reviewing selected cleanup categories and browser data.'
         Write-KobraUiLog -Message 'Starting analysis scan...' -BlankLine
 
         $cleanupTargets = @(Get-KobraCleanupTargetsFromUi)
@@ -824,6 +1030,7 @@ $script:BtnAnalyze.Add_Click({
 
         $totalBytes = [int64]0
 
+        Set-KobraAnalyzeStatus -Title 'Scanning cleanup targets' -SubTitle 'Inspecting temp files, caches, and recycle locations.'
         Write-KobraUiLog -Message 'Cleanup targets:' -NoTimestamp
         foreach ($item in $cleanupPreview) {
             if ($null -eq $item) { continue }
@@ -832,6 +1039,7 @@ $script:BtnAnalyze.Add_Click({
         }
 
         if ((Get-KobraSafeCount $browserPreview) -gt 0) {
+            Set-KobraAnalyzeStatus -Title 'Scanning browser data' -SubTitle 'Counting browser cache records and optional cookie targets.'
             Write-KobraUiLog -Message 'Browser targets:' -NoTimestamp
             foreach ($item in $browserPreview) {
                 if ($null -eq $item) { continue }
@@ -857,13 +1065,18 @@ $script:BtnAnalyze.Add_Click({
         }
 
         $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents
+        $script:LastAnalyzeManifest = $manifest
+        $script:LastAnalyzeTime = Get-Date
         Update-KobraResultsPanel -CategorySummary $manifest.CategorySummary -TotalRecords $manifest.CandidateCount -TotalBytes $manifest.TotalBytes
         Write-KobraUiLog -Message ("Delete manifest written: {0}" -f $manifest.ManifestPath) -NoTimestamp
         Write-KobraUiLog -Message ("Estimated reclaimable space: {0:N2} MB" -f ($totalBytes / 1MB))
         Write-KobraUiLog -Message ("Estimated removable records: {0:N0}" -f $manifest.CandidateCount)
+        Set-KobraAnalyzeStatus -Title 'Analysis complete' -SubTitle 'Your scan results are ready to review.'
         Set-KobraProgress 100
+        Switch-KobraView -ViewName 'Results'
     }
     catch {
+        Set-KobraAnalyzeStatus -Title 'Analysis failed' -SubTitle $_.Exception.Message
         Write-KobraUiLog -Message ("Analysis failed: {0}" -f $_.Exception.Message)
         Set-KobraProgress 0
     }
@@ -911,6 +1124,7 @@ $script:BtnCreateBackup.Add_Click({
         $backup = Invoke-KobraSettingsBackup -BackupRoot $script:BackupRoot -Log ${function:Write-KobraUiLog}
         if ($null -ne $backup -and $backup.PSObject.Properties.Name -contains 'BackupPath') {
             Write-KobraUiLog -Message ("Backup ready: {0}" -f $backup.BackupPath)
+            Update-KobraDashboard
             if (Test-Path -LiteralPath $backup.BackupPath) {
                 Start-Process explorer.exe $backup.BackupPath
             }
@@ -1174,5 +1388,9 @@ try {
 catch {
     Write-KobraUiLog -Message ("Startup list initialization failed: {0}" -f $_.Exception.Message)
 }
+
+Update-KobraSelectionSummary
+Update-KobraDashboard
+Switch-KobraView -ViewName 'Dashboard'
 
 $null = $script:Window.ShowDialog()
