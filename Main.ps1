@@ -1,7 +1,7 @@
 #requires -Version 5.1
 # ==============================================================================
-# KobraOptimizer v1.6.0 - Main Launcher
-# Neon UI pass + classic menu bar + toggleable log panel + laptop-friendly fit
+# KobraOptimizer v1.8.0 - Main Launcher
+# Next-gen shell pass: section-based product UI built on the existing PowerShell backend
 # ==============================================================================
 
 Set-StrictMode -Version Latest
@@ -27,7 +27,7 @@ function Get-KobraAppRoot {
     return (Get-Location).Path
 }
 
-$script:AppVersion   = '1.7.0'
+$script:AppVersion   = '1.8.2'
 $script:DonationUrl  = 'https://ko-fi.com/kobraoptimizer'
 $script:ProjectRoot  = Get-KobraAppRoot
 $script:ModuleRoot   = Join-Path $script:ProjectRoot 'Modules'
@@ -157,13 +157,11 @@ $controlNames = @(
     'StartupList','BtnStartupRefresh','BtnStartupDisable','BtnStartupEnable','ChkStartupShowMicrosoft',
     'BtnWindowsUpdate','BtnWindowsUpdateSettings','BtnWindowsStorage','BtnWindowsApps',
     'BtnWindowsStartupSettings','BtnWindowsGameMode','BtnWindowsGraphics','BtnWindowsPower',
-    'BtnExit','BtnDonate','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
-    'MenuFileAnalyze','MenuFileExecute','MenuFileQuickShed','MenuFileBackup','MenuFileExit',
-    'MenuToolsLogs','MenuToolsManifests',
-    'MenuHelpSupport','MenuHelpDisclaimer','MenuHelpAbout',
-    'BtnNavDashboard','BtnNavAnalyze','BtnNavResults','BtnNavTools',
-    'ViewDashboard','ViewAnalyze','ViewResults','ViewTools',
-    'BtnDashboardAnalyze','BtnDashboardQuickShed','BtnDashboardBackup','BtnDashboardViewResults',
+    'BtnExit','BtnDonate','BtnDonateSidebar','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
+    'BtnNavDashboard','BtnNavAnalyze','BtnNavCustomClean','BtnNavResults','BtnNavTools','BtnNavStartup','BtnNavUtilities','BtnNavAbout',
+    'ViewDashboard','ViewAnalyze','ViewCustomClean','ViewResults','ViewTools','ViewStartup','ViewUtilities','ViewAbout',
+    'BtnDashboardQuickScan','BtnDashboardCustomClean','BtnDashboardPerformance','BtnDashboardStartup',
+    'BtnQuickScanCustomize','BtnQuickScanBackup','BtnCustomAnalyze','BtnPerformanceApply','BtnPerformanceBackup',
     'TxtDashLastScan','TxtDashReclaimable','TxtDashRecords','TxtDashCategories','TxtDashSelections','TxtDashSafety','TxtRecentActivity',
     'TxtAnalyzeStage','TxtAnalyzeSubStage','TxtSelectedCategoryCount','TxtSelectedRecordCount','TxtSelectedBytes','TxtSelectedWarnings'
 )
@@ -232,9 +230,10 @@ function Set-KobraButtonsEnabled {
     $buttonNames = @(
         'BtnAnalyze','BtnRunSelected','BtnQuickShed','BtnCreateBackup','BtnOpenLogs','BtnOpenManifests',
         'BtnStartupRefresh','BtnStartupDisable','BtnStartupEnable',
-        'BtnExit','BtnDonate','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
-        'BtnNavDashboard','BtnNavAnalyze','BtnNavResults','BtnNavTools',
-        'BtnDashboardAnalyze','BtnDashboardQuickShed','BtnDashboardBackup','BtnDashboardViewResults'
+        'BtnExit','BtnDonate','BtnDonateSidebar','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
+        'BtnNavDashboard','BtnNavAnalyze','BtnNavCustomClean','BtnNavResults','BtnNavTools','BtnNavStartup','BtnNavUtilities','BtnNavAbout',
+        'BtnDashboardQuickScan','BtnDashboardCustomClean','BtnDashboardPerformance','BtnDashboardStartup',
+        'BtnQuickScanCustomize','BtnQuickScanBackup','BtnCustomAnalyze','BtnPerformanceApply','BtnPerformanceBackup'
     )
 
     foreach ($name in $buttonNames) {
@@ -250,34 +249,15 @@ function Set-KobraButtonsEnabled {
 }
 
 function Set-KobraPreferredFont {
-    $preferred = 'JetBrains Mono'
-    $fallbacks = @('Consolas','Segoe UI')
-    $fontName = $null
-
+    $fontName = 'Segoe UI'
     try {
-        $installedFonts = @([System.Windows.Media.Fonts]::SystemFontFamilies | ForEach-Object { $_.Source })
-        if ($installedFonts -contains $preferred) {
-            $fontName = $preferred
-        }
-        else {
-            foreach ($candidate in $fallbacks) {
-                if ($installedFonts -contains $candidate) {
-                    $fontName = $candidate
-                    break
-                }
-            }
-        }
+        $font = New-Object System.Windows.Media.FontFamily($fontName)
+        $script:Window.FontFamily = $font
+        $script:StatusTextBox.FontFamily = $font
     }
     catch {
-    }
-
-    if ([string]::IsNullOrWhiteSpace($fontName)) {
         $fontName = 'Segoe UI'
     }
-
-    $font = New-Object System.Windows.Media.FontFamily($fontName)
-    $script:Window.FontFamily = $font
-    $script:StatusTextBox.FontFamily = $font
     return $fontName
 }
 
@@ -472,7 +452,7 @@ function Show-KobraExecutionConfirmation {
     $messageLines = New-Object System.Collections.Generic.List[string]
     $messageLines.Add('You are about to execute the following Kobra actions:')
     $messageLines.Add('')
-    foreach ($action in $actions) { $messageLines.Add(('• {0}' -f $action)) }
+    foreach ($action in $actions) { $messageLines.Add(('- {0}' -f $action)) }
     $messageLines.Add('')
     if ($null -ne $ManifestInfo) {
         $messageLines.Add(('Estimated deletion candidates: {0}' -f $ManifestInfo.CandidateCount))
@@ -535,6 +515,23 @@ function Get-KobraBrowserComponentsFromUi {
         $components += 'Cookies'
     }
     return $components
+}
+
+function Set-KobraQuickScanPreset {
+    $script:ChkUserTemp.IsChecked    = $true
+    $script:ChkSystemTemp.IsChecked  = $true
+    $script:ChkWinUpdate.IsChecked   = $true
+    $script:ChkThumbCache.IsChecked  = $true
+    $script:ChkShaderCache.IsChecked = $false
+    $script:ChkRecycleBin.IsChecked  = $true
+
+    $script:ChkChrome.IsChecked       = $true
+    $script:ChkEdge.IsChecked         = $true
+    $script:ChkFirefox.IsChecked      = $false
+    $script:ChkBrowserCookies.IsChecked = $false
+
+    Update-KobraSelectionSummary
+    Update-KobraDashboard
 }
 
 function Get-KobraSelectedDnsProfile {
@@ -670,7 +667,7 @@ function Update-KobraSelectionSummary {
     $script:TxtSelectedCategoryCount.Text = ('{0} categories selected' -f $selectedCategories)
     $script:TxtSelectedRecordCount.Text = ('{0:N0} records selected' -f $selectedRecords)
     $script:TxtSelectedBytes.Text = ('{0:N2} MB selected' -f ($selectedBytes / 1MB))
-    $script:TxtSelectedWarnings.Text = if ($warnings.Count -gt 0) { ($warnings -join '  •  ') } else { 'Review the results, then run Clean Selected when you are ready.' }
+    $script:TxtSelectedWarnings.Text = if ($warnings.Count -gt 0) { ($warnings -join ' | ') } else { 'Review the results, then run Clean Selected when you are ready.' }
 }
 
 function Update-KobraDashboard {
@@ -717,18 +714,22 @@ function Set-KobraAnalyzeStatus {
 function Set-KobraNavState {
     param([string]$ActiveView)
 
-    $normalBackground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#1A1A1A'))
-    $normalBorder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#1F1F1F'))
-    $activeBackground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#00FF41'))
-    $activeBorder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#00FF41'))
-    $activeForeground = [System.Windows.Media.Brushes]::Black
+    $normalBackground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#3B4B67'))
+    $normalBorder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#3B4B67'))
+    $activeBackground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#16E06E'))
+    $activeBorder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#16E06E'))
+    $activeForeground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#102414'))
     $normalForeground = [System.Windows.Media.Brushes]::White
 
     $navMap = @{
-        Dashboard = $script:BtnNavDashboard
-        Analyze   = $script:BtnNavAnalyze
-        Results   = $script:BtnNavResults
-        Tools     = $script:BtnNavTools
+        Dashboard   = $script:BtnNavDashboard
+        Analyze     = $script:BtnNavAnalyze
+        CustomClean = $script:BtnNavCustomClean
+        Results     = $script:BtnNavResults
+        Tools       = $script:BtnNavTools
+        Startup     = $script:BtnNavStartup
+        Utilities   = $script:BtnNavUtilities
+        About       = $script:BtnNavAbout
     }
 
     foreach ($entry in $navMap.GetEnumerator()) {
@@ -749,11 +750,15 @@ function Set-KobraNavState {
 function Switch-KobraView {
     param([string]$ViewName)
 
-    $views = @{
-        Dashboard = $script:ViewDashboard
-        Analyze   = $script:ViewAnalyze
-        Results   = $script:ViewResults
-        Tools     = $script:ViewTools
+        $views = @{
+        Dashboard   = $script:ViewDashboard
+        Analyze     = $script:ViewAnalyze
+        CustomClean = $script:ViewCustomClean
+        Results     = $script:ViewResults
+        Tools       = $script:ViewTools
+        Startup     = $script:ViewStartup
+        Utilities   = $script:ViewUtilities
+        About       = $script:ViewAbout
     }
 
     foreach ($view in $views.Values) {
@@ -943,12 +948,12 @@ function Toggle-KobraLogPanel {
     $current = $script:LogRow.Height
     if ($current.Value -le 0) {
         $script:LogRow.Height = New-Object System.Windows.GridLength(220)
-        $script:BtnToggleLog.Content = 'Hide log'
+        $script:BtnToggleLog.Content = 'Hide advanced log'
         Write-KobraUiLog -Message 'Log panel expanded.'
     }
     else {
         $script:LogRow.Height = New-Object System.Windows.GridLength(0)
-        $script:BtnToggleLog.Content = 'Show log'
+        $script:BtnToggleLog.Content = 'Show advanced log'
         Write-KobraUiLog -Message 'Log panel collapsed.'
     }
     Invoke-KobraUiRefresh
@@ -967,6 +972,8 @@ elseif (Test-Path -LiteralPath $script:LogoPath) {
 }
 
 $script:CmbDnsProvider.SelectedIndex = 0
+$script:LogRow.Height = New-Object System.Windows.GridLength(0)
+if ($null -ne $script:BtnToggleLog) { $script:BtnToggleLog.Content = 'Show advanced log' }
 Update-KobraDnsControls
 $script:StatusTextBox.Clear()
 Write-KobraUiLog -Message 'KobraOptimizer ready.'
@@ -982,27 +989,40 @@ Write-KobraUiLog -Message 'Tip: Analyze first to estimate reclaimable space.' -N
 Write-KobraUiLog -Message 'Tip: Startup Manager works on Run keys and Startup folders.' -NoTimestamp
 Write-KobraUiLog -Message 'Tip: Analyze writes a delete manifest to C:\Temp\KobraOptimizer\Manifests.' -NoTimestamp
 Update-KobraResultsPanel -CategorySummary @() -TotalRecords 0 -TotalBytes 0
-Set-KobraAnalyzeStatus -Title 'Ready to analyze' -SubTitle 'Select your cleanup categories, then run Analyze to build a reviewable results screen.'
+Set-KobraAnalyzeStatus -Title 'Quick Scan is ready' -SubTitle 'Run the recommended scan here, or open Custom Clean to fine-tune exactly what Kobra reviews.'
 
 $script:ChkDnsProfile.Add_Click({ Update-KobraDnsControls })
 $script:ChkStartupShowMicrosoft.Add_Click({ Refresh-KobraStartupList })
 $script:BtnToggleLog.Add_Click({ Toggle-KobraLogPanel })
+
 $script:BtnNavDashboard.Add_Click({ Switch-KobraView -ViewName 'Dashboard' })
 $script:BtnNavAnalyze.Add_Click({ Switch-KobraView -ViewName 'Analyze' })
+$script:BtnNavCustomClean.Add_Click({ Switch-KobraView -ViewName 'CustomClean' })
 $script:BtnNavResults.Add_Click({ Switch-KobraView -ViewName 'Results' })
 $script:BtnNavTools.Add_Click({ Switch-KobraView -ViewName 'Tools' })
-$script:BtnDashboardAnalyze.Add_Click({ Switch-KobraView -ViewName 'Analyze'; Invoke-KobraButtonClick -Button $script:BtnAnalyze })
-$script:BtnDashboardQuickShed.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnQuickShed })
-$script:BtnDashboardBackup.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnCreateBackup })
-$script:BtnDashboardViewResults.Add_Click({ Switch-KobraView -ViewName 'Results' })
+$script:BtnNavStartup.Add_Click({ Switch-KobraView -ViewName 'Startup' })
+$script:BtnNavUtilities.Add_Click({ Switch-KobraView -ViewName 'Utilities' })
+$script:BtnNavAbout.Add_Click({ Switch-KobraView -ViewName 'About' })
+
+$script:BtnDashboardQuickScan.Add_Click({ Switch-KobraView -ViewName 'Analyze' })
+$script:BtnDashboardCustomClean.Add_Click({ Switch-KobraView -ViewName 'CustomClean' })
+$script:BtnDashboardPerformance.Add_Click({ Switch-KobraView -ViewName 'Tools' })
+$script:BtnDashboardStartup.Add_Click({ Switch-KobraView -ViewName 'Startup' })
+
+$script:BtnQuickScanCustomize.Add_Click({ Switch-KobraView -ViewName 'CustomClean' })
+$script:BtnQuickScanBackup.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnCreateBackup })
+$script:BtnCustomAnalyze.Add_Click({ Switch-KobraView -ViewName 'Analyze'; Invoke-KobraButtonClick -Button $script:BtnAnalyze })
+$script:BtnPerformanceApply.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnRunSelected })
+$script:BtnPerformanceBackup.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnCreateBackup })
 
 $selectionControls = @(
     $script:ChkUserTemp,$script:ChkSystemTemp,$script:ChkWinUpdate,$script:ChkThumbCache,$script:ChkShaderCache,$script:ChkRecycleBin,
-    $script:ChkChrome,$script:ChkEdge,$script:ChkFirefox,$script:ChkBrowserCookies
+    $script:ChkChrome,$script:ChkEdge,$script:ChkFirefox,$script:ChkBrowserCookies,
+    $script:ChkRestorePoint,$script:ChkRegistry,$script:ChkNetwork,$script:ChkDnsFlush,$script:ChkDnsProfile,$script:ChkHPDebloat
 )
 foreach ($control in $selectionControls) {
     if ($null -ne $control) {
-        $control.Add_Click({ Update-KobraSelectionSummary; Update-KobraDashboard })
+        $control.Add_Click({ Update-KobraSelectionSummary; Update-KobraDashboard; Update-KobraDnsControls })
     }
 }
 
@@ -1162,6 +1182,12 @@ $script:BtnExit.Add_Click({
 $script:BtnDonate.Add_Click({
     Invoke-KobraDonate
 })
+
+if ($null -ne $script:BtnDonateSidebar) {
+    $script:BtnDonateSidebar.Add_Click({
+        Invoke-KobraDonate
+    })
+}
 
 $script:BtnDisclaimer.Add_Click({
     Show-KobraDisclaimer
@@ -1351,16 +1377,7 @@ function Invoke-KobraButtonClick {
     $Button.RaiseEvent($args)
 }
 
-$script:MenuFileAnalyze.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnAnalyze })
-$script:MenuFileExecute.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnRunSelected })
-$script:MenuFileQuickShed.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnQuickShed })
-$script:MenuFileBackup.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnCreateBackup })
-$script:MenuFileExit.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnExit })
-$script:MenuToolsLogs.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnOpenLogs })
-$script:MenuToolsManifests.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnOpenManifests })
-$script:MenuHelpSupport.Add_Click({ Invoke-KobraDonate })
-$script:MenuHelpDisclaimer.Add_Click({ Show-KobraDisclaimer })
-$script:MenuHelpAbout.Add_Click({ Show-KobraAboutMe })
+
 
 $script:Window.Add_PreviewKeyDown({
     param($sender, $e)
@@ -1372,12 +1389,14 @@ $script:Window.Add_PreviewKeyDown({
     }
 
     switch ([string]$e.Key) {
+        'D' { Switch-KobraView -ViewName 'Dashboard'; $e.Handled = $true }
+        'Q' { Switch-KobraView -ViewName 'Analyze'; $e.Handled = $true }
+        'R' { Switch-KobraView -ViewName 'Results'; $e.Handled = $true }
+        'S' { Switch-KobraView -ViewName 'Startup'; $e.Handled = $true }
+        'T' { Switch-KobraView -ViewName 'Tools'; $e.Handled = $true }
         'A' { Invoke-KobraButtonClick -Button $script:BtnAnalyze; $e.Handled = $true }
         'E' { Invoke-KobraButtonClick -Button $script:BtnRunSelected; $e.Handled = $true }
-        'Q' { Invoke-KobraButtonClick -Button $script:BtnQuickShed; $e.Handled = $true }
         'B' { Invoke-KobraButtonClick -Button $script:BtnCreateBackup; $e.Handled = $true }
-        'L' { Invoke-KobraButtonClick -Button $script:BtnOpenLogs; $e.Handled = $true }
-        'M' { Invoke-KobraButtonClick -Button $script:BtnOpenManifests; $e.Handled = $true }
         'X' { Invoke-KobraButtonClick -Button $script:BtnExit; $e.Handled = $true }
     }
 })
@@ -1389,6 +1408,7 @@ catch {
     Write-KobraUiLog -Message ("Startup list initialization failed: {0}" -f $_.Exception.Message)
 }
 
+Set-KobraQuickScanPreset
 Update-KobraSelectionSummary
 Update-KobraDashboard
 Switch-KobraView -ViewName 'Dashboard'
