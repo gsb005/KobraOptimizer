@@ -27,7 +27,7 @@ function Get-KobraAppRoot {
     return (Get-Location).Path
 }
 
-$script:AppVersion   = '1.8.2'
+$script:AppVersion   = '1.8.3'
 $script:DonationUrl  = 'https://ko-fi.com/kobraoptimizer'
 $script:ProjectRoot  = Get-KobraAppRoot
 $script:ModuleRoot   = Join-Path $script:ProjectRoot 'Modules'
@@ -153,7 +153,7 @@ $controlNames = @(
     'StatusTextBox','ProgBar','KobraLogo','ResultsList','TxtResultsHeadline','TxtResultsSubHeadline',
     'ChkRestorePoint','ChkRegistry','ChkNetwork','ChkDnsFlush','ChkDnsProfile','ChkHPDebloat',
     'ChkUserTemp','ChkSystemTemp','ChkWinUpdate','ChkThumbCache','ChkShaderCache','ChkRecycleBin',
-    'ChkChrome','ChkEdge','ChkFirefox','ChkBrowserCookies','CmbDnsProvider',
+    'ChkChrome','ChkEdge','ChkFirefox','ChkBrowserCookies','ChkRegistryCleanup','ChkRegistryBackup','CmbDnsProvider',
     'StartupList','BtnStartupRefresh','BtnStartupDisable','BtnStartupEnable','ChkStartupShowMicrosoft',
     'BtnWindowsUpdate','BtnWindowsUpdateSettings','BtnWindowsStorage','BtnWindowsApps',
     'BtnWindowsStartupSettings','BtnWindowsGameMode','BtnWindowsGraphics','BtnWindowsPower',
@@ -326,11 +326,13 @@ function New-KobraDeleteManifest {
     param(
         [string[]]$CleanupTargets,
         [string[]]$BrowserTargets,
-        [string[]]$BrowserComponents = @('Cache')
+        [string[]]$BrowserComponents = @('Cache'),
+        [switch]$IncludeRegistryTraces
     )
 
     $cleanupCandidates = @()
     $browserCandidates = @()
+    $registryCandidates = @()
 
     if ((Get-KobraSafeCount $CleanupTargets) -gt 0) {
         $cleanupCandidates = @(Get-KobraCleanupCandidates -Targets $CleanupTargets)
@@ -338,8 +340,11 @@ function New-KobraDeleteManifest {
     if ((Get-KobraSafeCount $BrowserTargets) -gt 0) {
         $browserCandidates = @(Get-KobraBrowserCandidates -Browsers $BrowserTargets -Components $BrowserComponents)
     }
+    if ($IncludeRegistryTraces) {
+        $registryCandidates = @(Get-KobraRegistryTraceCandidates)
+    }
 
-    $allCandidates = @($cleanupCandidates) + @($browserCandidates)
+    $allCandidates = @($cleanupCandidates) + @($browserCandidates) + @($registryCandidates)
     $totalBytes = Get-KobraSafeMeasureSum -Items $allCandidates -PropertyName 'SizeBytes'
     $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
     $timeDisplay = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
@@ -385,6 +390,14 @@ function New-KobraDeleteManifest {
         $lines.Add('')
     }
 
+    if ((Get-KobraSafeCount $registryCandidates) -gt 0) {
+        $lines.Add('Registry Trace Candidates:')
+        foreach ($item in $registryCandidates) {
+            $lines.Add(('  [{0}] {1}' -f $item.Category, $item.Path))
+        }
+        $lines.Add('')
+    }
+
     if ((Get-KobraSafeCount $allCandidates) -eq 0) {
         $lines.Add('No file deletions are currently queued.')
     }
@@ -424,6 +437,8 @@ function Show-KobraExecutionConfirmation {
         [string[]]$CleanupTargets,
         [string[]]$BrowserTargets,
         [string[]]$BrowserComponents = @('Cache'),
+        [bool]$DoRegistryClean,
+        [bool]$DoRegistryBackup,
         [bool]$DoTls,
         [bool]$DoNetwork,
         [bool]$DoDnsFlush,
@@ -442,6 +457,8 @@ function Show-KobraExecutionConfirmation {
         $componentLabel = if ((Get-KobraSafeCount $BrowserComponents) -gt 0) { $BrowserComponents -join ' + ' } else { 'Cache' }
         $actions.Add(('Browser cleanup ({0}): {1}' -f $componentLabel, ($BrowserTargets -join ', ')))
     }
+    if ($DoRegistryClean) { $actions.Add('Registry traces cleanup') }
+    if ($DoRegistryBackup) { $actions.Add('Create registry backup first') }
     if ($DoTls) { $actions.Add('TLS hardening') }
     if ($DoNetwork) { $actions.Add('Network TCP strike') }
     if ($DoDnsFlush) { $actions.Add('Flush DNS cache') }
@@ -517,6 +534,103 @@ function Get-KobraBrowserComponentsFromUi {
     return $components
 }
 
+function Get-KobraRegistryCleanupSelected {
+    return [bool]$script:ChkRegistryCleanup.IsChecked
+}
+
+function Get-KobraRegistryBackupSelected {
+    return ([bool]$script:ChkRegistryCleanup.IsChecked -and [bool]$script:ChkRegistryBackup.IsChecked)
+}
+
+function Get-KobraRegistryTraceDefinitions {
+    @(
+        [pscustomobject]@{ Name='Run history'; Path='HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU'; Mode='Values' }
+        [pscustomobject]@{ Name='Typed paths'; Path='HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths'; Mode='Values' }
+        [pscustomobject]@{ Name='Typed URLs'; Path='HKCU:\Software\Microsoft\Internet Explorer\TypedURLs'; Mode='Values' }
+        [pscustomobject]@{ Name='Explorer search history'; Path='HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery'; Mode='Values' }
+        [pscustomobject]@{ Name='Recent docs'; Path='HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs'; Mode='Mixed' }
+    )
+}
+
+function Get-KobraRegistryTraceCandidates {
+    $items = New-Object System.Collections.Generic.List[object]
+
+    foreach ($def in @(Get-KobraRegistryTraceDefinitions)) {
+        if (-not (Test-Path -LiteralPath $def.Path)) { continue }
+        $item = Get-Item -LiteralPath $def.Path -ErrorAction SilentlyContinue
+        if ($null -eq $item) { continue }
+
+        foreach ($propName in @($item.Property | Where-Object { $_ -and $_ -ne '(default)' })) {
+            $items.Add([pscustomobject]@{
+                Category = 'Registry traces'
+                Path     = ('{0}\{1}' -f $def.Path, $propName)
+                SizeBytes= 1024
+                Note     = 'Safe user trace cleanup'
+            })
+        }
+
+        if ($def.Mode -eq 'Mixed') {
+            foreach ($subKey in @(Get-ChildItem -LiteralPath $def.Path -ErrorAction SilentlyContinue)) {
+                $items.Add([pscustomobject]@{
+                    Category = 'Registry traces'
+                    Path     = $subKey.Name
+                    SizeBytes= 1024
+                    Note     = 'Safe user trace cleanup'
+                })
+            }
+        }
+    }
+
+    return @($items)
+}
+
+function Backup-KobraRegistryTraces {
+    param([scriptblock]$Log)
+
+    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+    $backupDir = Join-Path $script:BackupRoot ("RegistryBackup_{0}" -f $timestamp)
+    $null = New-Item -Path $backupDir -ItemType Directory -Force
+
+    foreach ($def in @(Get-KobraRegistryTraceDefinitions)) {
+        if (-not (Test-Path -LiteralPath $def.Path)) { continue }
+        $regPath = $def.Path -replace '^HKCU:', 'HKCU' -replace '^HKLM:', 'HKLM'
+        $fileName = (($def.Name -replace '[^A-Za-z0-9]+','_').Trim('_')) + '.reg'
+        $dest = Join-Path $backupDir $fileName
+        $null = & reg.exe export $regPath $dest /y 2>$null
+        if ($Log) { & $Log ("Registry backup saved: {0}" -f $dest) }
+    }
+
+    return $backupDir
+}
+
+function Invoke-KobraRegistryTraceCleanup {
+    param([scriptblock]$Log)
+
+    $removed = 0
+    foreach ($def in @(Get-KobraRegistryTraceDefinitions)) {
+        if (-not (Test-Path -LiteralPath $def.Path)) { continue }
+
+        try {
+            $item = Get-Item -LiteralPath $def.Path -ErrorAction Stop
+            foreach ($propName in @($item.Property | Where-Object { $_ -and $_ -ne '(default)' })) {
+                Remove-ItemProperty -LiteralPath $def.Path -Name $propName -ErrorAction SilentlyContinue
+                $removed++
+            }
+
+            if ($def.Mode -eq 'Mixed') {
+                foreach ($subKey in @(Get-ChildItem -LiteralPath $def.Path -ErrorAction SilentlyContinue)) {
+                    Remove-Item -LiteralPath $subKey.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                    $removed++
+                }
+            }
+        }
+        catch { }
+    }
+
+    if ($Log) { & $Log ("Registry trace cleanup complete. Removed {0} items." -f $removed) }
+    return $removed
+}
+
 function Set-KobraQuickScanPreset {
     $script:ChkUserTemp.IsChecked    = $true
     $script:ChkSystemTemp.IsChecked  = $true
@@ -529,6 +643,8 @@ function Set-KobraQuickScanPreset {
     $script:ChkEdge.IsChecked         = $true
     $script:ChkFirefox.IsChecked      = $false
     $script:ChkBrowserCookies.IsChecked = $false
+    if ($null -ne $script:ChkRegistryCleanup) { $script:ChkRegistryCleanup.IsChecked = $false }
+    if ($null -ne $script:ChkRegistryBackup) { $script:ChkRegistryBackup.IsChecked = $true }
 
     Update-KobraSelectionSummary
     Update-KobraDashboard
@@ -558,6 +674,7 @@ function Get-KobraResultNote {
         '*Shader Cache' { return 'Rebuilds on next game launch' }
         '*Windows Update Cache' { return 'Windows may rebuild cache later' }
         '*Cookies' { return 'May sign you out of websites' }
+        'Registry traces' { return 'Creates backup first when selected' }
         default { return '' }
     }
 }
@@ -614,6 +731,7 @@ function Resolve-KobraCategorySelected {
         '*Chrome Cookies' { return ([bool]$script:ChkChrome.IsChecked -and [bool]$script:ChkBrowserCookies.IsChecked) }
         '*Edge Cookies' { return ([bool]$script:ChkEdge.IsChecked -and [bool]$script:ChkBrowserCookies.IsChecked) }
         '*Firefox Cookies' { return ([bool]$script:ChkFirefox.IsChecked -and [bool]$script:ChkBrowserCookies.IsChecked) }
+        'Registry traces' { return [bool]$script:ChkRegistryCleanup.IsChecked }
         default { return $true }
     }
 }
@@ -661,7 +779,7 @@ function Update-KobraSelectionSummary {
     }
 
     if ($selectedCategories -eq 0) {
-        $selectedCategories = (@(Get-KobraCleanupTargetsFromUi) + @(Get-KobraBrowserTargetsFromUi)).Count
+        $selectedCategories = (@(Get-KobraCleanupTargetsFromUi) + @(Get-KobraBrowserTargetsFromUi)).Count + (if ([bool]$script:ChkRegistryCleanup.IsChecked) { 1 } else { 0 })
     }
 
     $script:TxtSelectedCategoryCount.Text = ('{0} categories selected' -f $selectedCategories)
@@ -686,7 +804,7 @@ function Update-KobraDashboard {
         $script:TxtDashCategories.Text = '--'
     }
 
-    $selectedCount = (@(Get-KobraCleanupTargetsFromUi) + @(Get-KobraBrowserTargetsFromUi)).Count
+    $selectedCount = (@(Get-KobraCleanupTargetsFromUi) + @(Get-KobraBrowserTargetsFromUi)).Count + (if ([bool]$script:ChkRegistryCleanup.IsChecked) { 1 } else { 0 })
     $script:TxtDashSelections.Text = if ($selectedCount -gt 0) { "$selectedCount active categories are ready for analysis." } else { 'No cleanup categories selected yet.' }
 
     $latestBackup = Get-KobraLatestBackupPath
@@ -1017,7 +1135,7 @@ $script:BtnPerformanceBackup.Add_Click({ Invoke-KobraButtonClick -Button $script
 
 $selectionControls = @(
     $script:ChkUserTemp,$script:ChkSystemTemp,$script:ChkWinUpdate,$script:ChkThumbCache,$script:ChkShaderCache,$script:ChkRecycleBin,
-    $script:ChkChrome,$script:ChkEdge,$script:ChkFirefox,$script:ChkBrowserCookies,
+    $script:ChkChrome,$script:ChkEdge,$script:ChkFirefox,$script:ChkBrowserCookies,$script:ChkRegistryCleanup,$script:ChkRegistryBackup,
     $script:ChkRestorePoint,$script:ChkRegistry,$script:ChkNetwork,$script:ChkDnsFlush,$script:ChkDnsProfile,$script:ChkHPDebloat
 )
 foreach ($control in $selectionControls) {
@@ -1043,9 +1161,13 @@ $script:BtnAnalyze.Add_Click({
         $cleanupPreview = @(Get-KobraCleanupPreview -Targets $cleanupTargets)
         $browserTargets = @(Get-KobraBrowserTargetsFromUi)
         $browserComponents = @(Get-KobraBrowserComponentsFromUi)
+        $registryPreview = @()
         $browserPreview = @()
         if ((Get-KobraSafeCount $browserTargets) -gt 0) {
             $browserPreview = @(Get-KobraBrowserPreview -Browsers $browserTargets -Components $browserComponents)
+        }
+        if (Get-KobraRegistryCleanupSelected) {
+            $registryPreview = @(Get-KobraRegistryTraceCandidates)
         }
 
         $totalBytes = [int64]0
@@ -1072,6 +1194,17 @@ $script:BtnAnalyze.Add_Click({
             Write-KobraUiLog -Message 'Saved passwords and bookmarks are preserved. Cookie cleaning may sign you out of sites.' -NoTimestamp
         }
 
+        if ((Get-KobraSafeCount $registryPreview) -gt 0) {
+            Set-KobraAnalyzeStatus -Title 'Scanning registry traces' -SubTitle 'Counting safe user trace entries for optional cleanup.'
+            Write-KobraUiLog -Message 'Registry targets:' -NoTimestamp
+            $registryBytes = [int64](Get-KobraSafeMeasureSum -Items $registryPreview -PropertyName 'SizeBytes')
+            $totalBytes += $registryBytes
+            Write-KobraUiLog -Message ("  Registry traces: {0:N2} MB ({1:N0} records)" -f ($registryBytes / 1MB), (Get-KobraSafeCount $registryPreview)) -NoTimestamp
+            if (Get-KobraRegistryBackupSelected) {
+                Write-KobraUiLog -Message '  Registry backup will be created before cleanup.' -NoTimestamp
+            }
+        }
+
         if ($script:ChkDnsProfile.IsChecked) {
             $profileName = Get-KobraSelectedDnsProfile
             $dnsSummary = Get-KobraDnsPlan -ProfileName $profileName
@@ -1084,7 +1217,7 @@ $script:BtnAnalyze.Add_Click({
             }
         }
 
-        $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents
+        $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents -IncludeRegistryTraces:(Get-KobraRegistryCleanupSelected)
         $script:LastAnalyzeManifest = $manifest
         $script:LastAnalyzeTime = Get-Date
         Update-KobraResultsPanel -CategorySummary $manifest.CategorySummary -TotalRecords $manifest.CandidateCount -TotalBytes $manifest.TotalBytes
@@ -1111,9 +1244,9 @@ $script:BtnQuickShed.Add_Click({
 
     try {
         $defaultTargets = @('UserTemp','SystemTemp','ThumbnailCache','ShaderCache','RecycleBin')
-        $manifest = New-KobraDeleteManifest -CleanupTargets $defaultTargets -BrowserTargets @() -BrowserComponents @('Cache')
+        $manifest = New-KobraDeleteManifest -CleanupTargets $defaultTargets -BrowserTargets @() -BrowserComponents @('Cache') -IncludeRegistryTraces:$false
 
-        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $defaultTargets -BrowserTargets @() -BrowserComponents @('Cache') -DoTls $false -DoNetwork $false -DoDnsFlush $false -DoDnsProfile $false -DoHpDebloat $false -DoRestore $false -DnsProfile '' -ManifestInfo $manifest
+        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $defaultTargets -BrowserTargets @() -BrowserComponents @('Cache') -DoRegistryClean $false -DoRegistryBackup $false -DoTls $false -DoNetwork $false -DoDnsFlush $false -DoDnsProfile $false -DoHpDebloat $false -DoRestore $false -DnsProfile '' -ManifestInfo $manifest
         if (-not $confirmed) {
             Write-KobraUiLog -Message 'Quick Shed canceled by user.' -BlankLine
             Set-KobraProgress 0
@@ -1204,6 +1337,8 @@ $script:BtnRunSelected.Add_Click({
         $cleanupTargets = @(Get-KobraCleanupTargetsFromUi)
         $browserTargets = @(Get-KobraBrowserTargetsFromUi)
         $browserComponents = @(Get-KobraBrowserComponentsFromUi)
+        $doRegistryClean = Get-KobraRegistryCleanupSelected
+        $doRegistryBackup = Get-KobraRegistryBackupSelected
         $doTls         = [bool]$script:ChkRegistry.IsChecked
         $doNetwork     = [bool]$script:ChkNetwork.IsChecked
         $doDnsFlush    = [bool]$script:ChkDnsFlush.IsChecked
@@ -1215,6 +1350,7 @@ $script:BtnRunSelected.Add_Click({
         $stepCount = 0
         if ((Get-KobraSafeCount $cleanupTargets) -gt 0) { $stepCount++ }
         if ((Get-KobraSafeCount $browserTargets) -gt 0) { $stepCount++ }
+        if ($doRegistryClean) { if ($doRegistryBackup) { $stepCount++ }; $stepCount++ }
         if ($doTls)        { $stepCount++ }
         if ($doNetwork)    { $stepCount++ }
         if ($doDnsFlush)   { $stepCount++ }
@@ -1228,8 +1364,8 @@ $script:BtnRunSelected.Add_Click({
             return
         }
 
-        $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents
-        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents -DoTls $doTls -DoNetwork $doNetwork -DoDnsFlush $doDnsFlush -DoDnsProfile $doDnsProfile -DoHpDebloat $doHpDebloat -DoRestore $doRestore -DnsProfile $dnsProfile -ManifestInfo $manifest
+        $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents -IncludeRegistryTraces:(Get-KobraRegistryCleanupSelected)
+        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents -DoRegistryClean $doRegistryClean -DoRegistryBackup $doRegistryBackup -DoTls $doTls -DoNetwork $doNetwork -DoDnsFlush $doDnsFlush -DoDnsProfile $doDnsProfile -DoHpDebloat $doHpDebloat -DoRestore $doRestore -DnsProfile $dnsProfile -ManifestInfo $manifest
         if (-not $confirmed) {
             Write-KobraUiLog -Message 'Execution canceled by user.' -BlankLine
             Set-KobraProgress 0
@@ -1256,6 +1392,18 @@ $script:BtnRunSelected.Add_Click({
 
         if ((Get-KobraSafeCount $browserTargets) -gt 0) {
             Invoke-KobraBrowserCleanup -Browsers $browserTargets -Components $browserComponents -Log ${function:Write-KobraUiLog}
+            $currentStep++
+            Set-KobraProgress ([math]::Round(($currentStep / $stepCount) * 100))
+        }
+
+        if ($doRegistryClean) {
+            if ($doRegistryBackup) {
+                $backupPath = Backup-KobraRegistryTraces -Log ${function:Write-KobraUiLog}
+                Write-KobraUiLog -Message ("Registry backup folder: {0}" -f $backupPath)
+                $currentStep++
+                Set-KobraProgress ([math]::Round(($currentStep / $stepCount) * 100))
+            }
+            Invoke-KobraRegistryTraceCleanup -Log ${function:Write-KobraUiLog} | Out-Null
             $currentStep++
             Set-KobraProgress ([math]::Round(($currentStep / $stepCount) * 100))
         }

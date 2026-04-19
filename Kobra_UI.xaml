@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KobraOptimizer v1.8.2"
+        Title="KobraOptimizer v1.8.3"
         Height="900"
         Width="1540"
         MinHeight="780"
@@ -8,7 +8,7 @@
         MinWidth="1340"
         MaxWidth="1740"
         Background="#33445D"
-        FontFamily="Segoe UI"
+        FontFamily="Segoe UI Variable Text"
         FontSize="14"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
@@ -227,7 +227,11 @@
 
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
-            <Setter Property="Margin" Value="0,6,0,0"/>
+            <Setter Property="FontFamily" Value="Segoe UI Variable Text"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Margin" Value="0,8,0,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="2,2,0,2"/>
         </Style>
 
         <Style TargetType="ComboBox">
@@ -464,7 +468,7 @@
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock Text="Custom Clean" Style="{StaticResource PageTitleStyle}"/>
-                                <TextBlock Text="Tune exactly what Kobra scans, keep browser options separate, and move into a more reviewable results flow." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
+                                <TextBlock Text="Tune exactly what Kobra scans, keep browser options separate, and optionally include safe registry trace cleanup with a backup-first flow." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="0.98*"/>
@@ -508,6 +512,14 @@
                                                     <Button Name="BtnCustomAnalyze" Content="Analyze Selected" Width="170" Style="{StaticResource PrimaryButtonStyle}"/>
                                                     <Button Content="Review Results" Width="150" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
                                                 </WrapPanel>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource CardBorderStyle}" Background="{StaticResource CardAltBrush}">
+                                            <StackPanel>
+                                                <TextBlock Text="Registry cleanup" FontSize="18" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Optional safe user-trace cleanup. Kobra can back up the related registry keys before removing them." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,10"/>
+                                                <CheckBox Name="ChkRegistryCleanup" Content="Clean registry traces (Run history, Typed URLs, search history, recent docs)"/>
+                                                <CheckBox Name="ChkRegistryBackup" Content="Create registry backup before cleanup" IsChecked="True"/>
                                             </StackPanel>
                                         </Border>
                                         <UniformGrid Columns="2" Margin="0,0,0,0">
