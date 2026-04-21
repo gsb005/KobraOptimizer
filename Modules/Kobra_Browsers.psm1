@@ -25,34 +25,196 @@ function Get-KobraSafeCount {
     return @($Value).Count
 }
 
+function Get-KobraFailureKind {
+    param([string]$Message)
+
+    if ([string]::IsNullOrWhiteSpace($Message)) {
+        return 'failed'
+    }
+
+    $text = $Message.ToLowerInvariant()
+    if ($text.Contains('used by another process') -or $text.Contains('being used by another process') -or $text.Contains('cannot access the file') -or $text.Contains('because it is being used')) {
+        return 'locked'
+    }
+
+    if ($text.Contains('access to the path') -or $text.Contains('access is denied') -or $text.Contains('permission')) {
+        return 'permission'
+    }
+
+    return 'failed'
+}
+
+function New-KobraBrowserResult {
+    param(
+        [Parameter(Mandatory)][string]$Category,
+        [int]$FoundCount = 0,
+        [int]$AttemptedCount = 0,
+        [int]$RemovedCount = 0,
+        [int]$SkippedCount = 0,
+        [int]$FailedCount = 0,
+        [int]$LockedCount = 0,
+        [int64]$FoundBytes = 0,
+        [int64]$RemovedBytes = 0,
+        [string]$Reason = ''
+    )
+
+    return [pscustomobject]@{
+        Section        = 'Browser'
+        Category       = $Category
+        FoundCount     = $FoundCount
+        AttemptedCount = $AttemptedCount
+        RemovedCount   = $RemovedCount
+        SkippedCount   = $SkippedCount
+        FailedCount    = $FailedCount
+        LockedCount    = $LockedCount
+        FoundBytes     = $FoundBytes
+        RemovedBytes   = $RemovedBytes
+        Reason         = $Reason
+    }
+}
+
+function Get-KobraChromiumBrowser {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string[]]$ProcessNames,
+        [Parameter(Mandatory)][string[]]$ProfileRoots
+    )
+
+    return @{
+        Name         = $Name
+        Engine       = 'Chromium'
+        ProcessNames = $ProcessNames
+        ProfileRoots = $ProfileRoots
+        ProfileDirs  = @('Default','Profile *')
+        RootDirs     = @()
+        CacheDirs    = @(
+            'Cache',
+            'Media Cache',
+            'GPUCache',
+            'ShaderCache',
+            'Code Cache',
+            'Service Worker\CacheStorage',
+            'Application Cache',
+            'File System',
+            'Storage\ext\*\def\Cache',
+            'Storage\ext\*\def\Media Cache',
+            'Storage\ext\*\def\GPUCache',
+            'Storage\ext\*\def\ShaderCache',
+            'Storage\ext\*\def\Code Cache',
+            'Storage\ext\*\def\Platform Notifications',
+            'Platform Notifications',
+            'component_crx_cache',
+            'GraphiteDawnCache',
+            'GrShaderCache',
+            'DawnCache'
+        )
+        CacheFiles   = @('TopSites.json')
+        CookieFiles  = @(
+            'Network\Cookies*',
+            'Cookies*',
+            'Origin Bound Certs',
+            'QuotaManager',
+            'Extension Cookies'
+        )
+        CookieDirs   = @(
+            'Local Storage',
+            'WebStorage',
+            'IndexedDB',
+            'databases'
+        )
+        HistoryFiles = @(
+            'History',
+            'History Index*.*',
+            'Archived History',
+            'Visited Links',
+            'Current Tabs',
+            'Last Tabs',
+            'Top Sites',
+            'History Provider Cache',
+            'Network Action Predictor',
+            'Shortcuts',
+            'DownloadMetadata'
+        )
+        HistoryDirs  = @()
+    }
+}
+
 function Get-KobraBrowserCatalog {
     [ordered]@{
-        Chrome = @{
-            Name           = 'Google Chrome'
-            ProcessName    = 'chrome'
-            Root           = "$env:LOCALAPPDATA\Google\Chrome\User Data"
-            ProfileDirs    = @('Default','Profile *')
-            CacheDirs      = @('Cache','Code Cache','GPUCache','DawnCache','GrShaderCache','Service Worker\CacheStorage')
-            RootDirs       = @('Crashpad')
-            CookieFiles    = @('Network\Cookies','Network\Cookies-journal','Network\Cookies-wal','Network\Cookies-shm','Cookies','Cookies-journal','Cookies-wal','Cookies-shm')
-        }
-        Edge = @{
-            Name           = 'Microsoft Edge'
-            ProcessName    = 'msedge'
-            Root           = "$env:LOCALAPPDATA\Microsoft\Edge\User Data"
-            ProfileDirs    = @('Default','Profile *')
-            CacheDirs      = @('Cache','Code Cache','GPUCache','DawnCache','GrShaderCache','Service Worker\CacheStorage')
-            RootDirs       = @('Crashpad')
-            CookieFiles    = @('Network\Cookies','Network\Cookies-journal','Network\Cookies-wal','Network\Cookies-shm','Cookies','Cookies-journal','Cookies-wal','Cookies-shm')
-        }
+        Chrome  = Get-KobraChromiumBrowser -Name 'Google Chrome' -ProcessNames @('chrome') -ProfileRoots @(
+            "$env:LOCALAPPDATA\Google\Chrome\User Data",
+            "$env:LOCALAPPDATA\Google\Chrome Beta\User Data",
+            "$env:LOCALAPPDATA\Google\Chrome SxS\User Data",
+            "$env:LOCALAPPDATA\Chromium\User Data"
+        )
+        Edge    = Get-KobraChromiumBrowser -Name 'Microsoft Edge' -ProcessNames @('msedge') -ProfileRoots @(
+            "$env:LOCALAPPDATA\Microsoft\Edge\User Data",
+            "$env:LOCALAPPDATA\Microsoft\Edge Beta\User Data",
+            "$env:LOCALAPPDATA\Microsoft\Edge Dev\User Data",
+            "$env:LOCALAPPDATA\Microsoft\Edge SxS\User Data"
+        )
+        Opera   = Get-KobraChromiumBrowser -Name 'Opera' -ProcessNames @('opera') -ProfileRoots @(
+            "$env:APPDATA\Opera Software\Opera Stable",
+            "$env:LOCALAPPDATA\Opera Software\Opera Stable",
+            "$env:APPDATA\Opera Software\Opera Next",
+            "$env:LOCALAPPDATA\Opera Software\Opera Next",
+            "$env:APPDATA\Opera Software\Opera Developer",
+            "$env:LOCALAPPDATA\Opera Software\Opera Developer",
+            "$env:APPDATA\Opera Software\Opera GX Stable",
+            "$env:LOCALAPPDATA\Opera Software\Opera GX Stable"
+        )
+        Brave   = Get-KobraChromiumBrowser -Name 'Brave Browser' -ProcessNames @('brave') -ProfileRoots @(
+            "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data",
+            "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser-Beta\User Data",
+            "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser-Nightly\User Data"
+        )
+        Vivaldi = Get-KobraChromiumBrowser -Name 'Vivaldi' -ProcessNames @('vivaldi') -ProfileRoots @(
+            "$env:LOCALAPPDATA\Vivaldi\User Data"
+        )
         Firefox = @{
-            Name           = 'Firefox'
-            ProcessName    = 'firefox'
-            Root           = "$env:APPDATA\Mozilla\Firefox\Profiles"
-            ProfileDirs    = @('*')
-            CacheDirs      = @('cache2','startupCache','thumbnails','shader-cache')
-            RootDirs       = @()
-            CookieFiles    = @('cookies.sqlite','cookies.sqlite-wal','cookies.sqlite-shm')
+            Name         = 'Firefox'
+            Engine       = 'Mozilla'
+            ProcessNames = @('firefox')
+            ProfileRoots = @(
+                "$env:APPDATA\Mozilla\Firefox\Profiles",
+                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles",
+                "$env:LOCALAPPDATA\Packages\Mozilla.Firefox_n80bbvh6b1yt2\LocalCache\Roaming\Mozilla\Firefox\Profiles",
+                "$env:LOCALAPPDATA\Packages\Mozilla.Firefox_n80bbvh6b1yt2\LocalCache\Local\Mozilla\Firefox\Profiles"
+            )
+            ProfileDirs  = @('*')
+            RootDirs     = @(
+                "$env:COMMONAPPDATA\Mozilla-*"
+            )
+            CacheDirs    = @(
+                'cache',
+                'cache2',
+                'cache.trash*',
+                'jumpListCache',
+                'startupCache',
+                'OfflineCache',
+                'safebrowsing'
+            )
+            CacheFiles   = @()
+            CookieFiles  = @(
+                'cookies.sqlite*',
+                'permissions.sqlite*',
+                'webappsstore.sqlite*'
+            )
+            CookieDirs   = @(
+                'indexedDB',
+                'storage\persistent',
+                'storage\permanent',
+                'storage\default',
+                'storage\temporary'
+            )
+            HistoryFiles = @(
+                'history.dat',
+                'urlbarhistory.sqlite*',
+                'downloads.rdf',
+                'downloads.sqlite*',
+                'downloads.json'
+            )
+            HistoryDirs  = @('thumbnails')
         }
     }
 }
@@ -60,7 +222,7 @@ function Get-KobraBrowserCatalog {
 function Get-KobraBrowserComponentInfo {
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('Cache','Cookies')]
+        [ValidateSet('Cache','Cookies','History')]
         [string]$Component
     )
 
@@ -77,83 +239,193 @@ function Get-KobraBrowserComponentInfo {
                 Note   = 'May sign you out of websites'
             }
         }
+        'History' {
+            return [pscustomobject]@{
+                Suffix = 'History'
+                Note   = 'Browsing and download history where safe to remove'
+            }
+        }
+    }
+}
+
+function Resolve-KobraBrowserMatches {
+    param(
+        [Parameter(Mandatory)][string]$BasePath,
+        [Parameter(Mandatory)][string]$Pattern,
+        [Parameter(Mandatory)][ValidateSet('File','Directory')][string]$ExpectedType
+    )
+
+    if (-not (Test-Path -LiteralPath $BasePath)) {
+        return @()
+    }
+
+    $searchPath = Join-Path $BasePath $Pattern
+    $hasWildcard = ($Pattern.IndexOf('*') -ge 0) -or ($Pattern.IndexOf('?') -ge 0) -or ($Pattern.IndexOf('[') -ge 0)
+
+    if (-not $hasWildcard) {
+        if (-not (Test-Path -LiteralPath $searchPath)) {
+            return @()
+        }
+
+        $item = Get-Item -LiteralPath $searchPath -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) {
+            return @()
+        }
+
+        if ($ExpectedType -eq 'File' -and -not $item.PSIsContainer) {
+            return @($item)
+        }
+
+        if ($ExpectedType -eq 'Directory' -and $item.PSIsContainer) {
+            return @($item)
+        }
+
+        return @()
+    }
+
+    $params = @{
+        Path        = $searchPath
+        Force       = $true
+        ErrorAction = 'SilentlyContinue'
+    }
+
+    if ($ExpectedType -eq 'File') {
+        $params.File = $true
+    }
+    else {
+        $params.Directory = $true
+    }
+
+    return @(Get-ChildItem @params)
+}
+
+function Get-KobraBrowserProfilePaths {
+    param([hashtable]$Entry)
+
+    $profiles = @()
+    foreach ($root in @($Entry.ProfileRoots)) {
+        if (-not (Test-Path -LiteralPath $root)) {
+            continue
+        }
+
+        foreach ($profilePattern in @($Entry.ProfileDirs)) {
+            $profiles += @(Resolve-KobraBrowserMatches -BasePath $root -Pattern $profilePattern -ExpectedType 'Directory')
+        }
+    }
+
+    return @($profiles | Sort-Object FullName -Unique)
+}
+
+function Get-KobraBrowserRootPaths {
+    param([hashtable]$Entry)
+
+    $roots = @()
+    foreach ($root in @($Entry.ProfileRoots) + @($Entry.RootDirs)) {
+        if ([string]::IsNullOrWhiteSpace($root)) {
+            continue
+        }
+
+        if ($root.IndexOf('*') -ge 0 -or $root.IndexOf('?') -ge 0 -or $root.IndexOf('[') -ge 0) {
+            $roots += @(Get-ChildItem -Path $root -Force -Directory -ErrorAction SilentlyContinue)
+        }
+        elseif (Test-Path -LiteralPath $root) {
+            $roots += @(Get-Item -LiteralPath $root -Force -ErrorAction SilentlyContinue)
+        }
+    }
+
+    return @($roots | Sort-Object FullName -Unique)
+}
+
+function New-KobraBrowserMatch {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][ValidateSet('File','Directory')][string]$Kind,
+        [Parameter(Mandatory)][string]$Category,
+        [Parameter(Mandatory)][string]$Note
+    )
+
+    return [pscustomobject]@{
+        Path     = $Path
+        Kind     = $Kind
+        Category = $Category
+        Note     = $Note
     }
 }
 
 function Get-KobraBrowserComponentItems {
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('Chrome','Edge','Firefox')]
+        [ValidateSet('Chrome','Edge','Firefox','Opera','Brave','Vivaldi')]
         [string]$Browser,
 
         [Parameter(Mandatory)]
-        [ValidateSet('Cache','Cookies')]
+        [ValidateSet('Cache','Cookies','History')]
         [string]$Component
     )
 
     $catalog = Get-KobraBrowserCatalog
-    $entry   = $catalog[$Browser]
+    $entry = $catalog[$Browser]
+    $info = Get-KobraBrowserComponentInfo -Component $Component
+    $category = ('{0} {1}' -f $entry.Name, $info.Suffix)
     $results = @()
 
-    if (-not (Test-Path -LiteralPath $entry.Root)) {
-        return @()
-    }
-
-    $profiles = @()
-    foreach ($profilePattern in $entry.ProfileDirs) {
-        $profiles += Get-ChildItem -LiteralPath $entry.Root -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
-            $_.Name -like $profilePattern
-        }
-    }
-
-    $profiles = @($profiles | Sort-Object FullName -Unique)
+    $profiles = @(Get-KobraBrowserProfilePaths -Entry $entry)
+    $roots = @(Get-KobraBrowserRootPaths -Entry $entry)
 
     switch ($Component) {
         'Cache' {
             foreach ($profile in $profiles) {
-                foreach ($cacheDir in $entry.CacheDirs) {
-                    $fullPath = Join-Path $profile.FullName $cacheDir
-                    if (Test-Path -LiteralPath $fullPath) {
-                        $results += [pscustomobject]@{
-                            Path      = $fullPath
-                            Kind      = 'Directory'
-                            Category  = ('{0} Cache' -f $entry.Name)
-                            Note      = 'Temporary browser files'
-                        }
+                foreach ($pattern in @($entry.CacheDirs)) {
+                    foreach ($match in @(Resolve-KobraBrowserMatches -BasePath $profile.FullName -Pattern $pattern -ExpectedType 'Directory')) {
+                        $results += @(New-KobraBrowserMatch -Path $match.FullName -Kind 'Directory' -Category $category -Note $info.Note)
+                    }
+                }
+                foreach ($pattern in @($entry.CacheFiles)) {
+                    foreach ($match in @(Resolve-KobraBrowserMatches -BasePath $profile.FullName -Pattern $pattern -ExpectedType 'File')) {
+                        $results += @(New-KobraBrowserMatch -Path $match.FullName -Kind 'File' -Category $category -Note $info.Note)
                     }
                 }
             }
 
-            foreach ($rootDir in $entry.RootDirs) {
-                $fullPath = Join-Path $entry.Root $rootDir
-                if (Test-Path -LiteralPath $fullPath) {
-                    $results += [pscustomobject]@{
-                        Path      = $fullPath
-                        Kind      = 'Directory'
-                        Category  = ('{0} Cache' -f $entry.Name)
-                        Note      = 'Temporary browser files'
+            foreach ($root in $roots) {
+                foreach ($pattern in @('component_crx_cache','GraphiteDawnCache','GrShaderCache','ShaderCache')) {
+                    foreach ($match in @(Resolve-KobraBrowserMatches -BasePath $root.FullName -Pattern $pattern -ExpectedType 'Directory')) {
+                        $results += @(New-KobraBrowserMatch -Path $match.FullName -Kind 'Directory' -Category $category -Note $info.Note)
                     }
                 }
             }
         }
         'Cookies' {
             foreach ($profile in $profiles) {
-                foreach ($cookieFile in $entry.CookieFiles) {
-                    $fullPath = Join-Path $profile.FullName $cookieFile
-                    if (Test-Path -LiteralPath $fullPath) {
-                        $results += [pscustomobject]@{
-                            Path      = $fullPath
-                            Kind      = 'File'
-                            Category  = ('{0} Cookies' -f $entry.Name)
-                            Note      = 'May sign you out of websites'
-                        }
+                foreach ($pattern in @($entry.CookieFiles)) {
+                    foreach ($match in @(Resolve-KobraBrowserMatches -BasePath $profile.FullName -Pattern $pattern -ExpectedType 'File')) {
+                        $results += @(New-KobraBrowserMatch -Path $match.FullName -Kind 'File' -Category $category -Note $info.Note)
+                    }
+                }
+                foreach ($pattern in @($entry.CookieDirs)) {
+                    foreach ($match in @(Resolve-KobraBrowserMatches -BasePath $profile.FullName -Pattern $pattern -ExpectedType 'Directory')) {
+                        $results += @(New-KobraBrowserMatch -Path $match.FullName -Kind 'Directory' -Category $category -Note $info.Note)
+                    }
+                }
+            }
+        }
+        'History' {
+            foreach ($profile in $profiles) {
+                foreach ($pattern in @($entry.HistoryFiles)) {
+                    foreach ($match in @(Resolve-KobraBrowserMatches -BasePath $profile.FullName -Pattern $pattern -ExpectedType 'File')) {
+                        $results += @(New-KobraBrowserMatch -Path $match.FullName -Kind 'File' -Category $category -Note $info.Note)
+                    }
+                }
+                foreach ($pattern in @($entry.HistoryDirs)) {
+                    foreach ($match in @(Resolve-KobraBrowserMatches -BasePath $profile.FullName -Pattern $pattern -ExpectedType 'Directory')) {
+                        $results += @(New-KobraBrowserMatch -Path $match.FullName -Kind 'Directory' -Category $category -Note $info.Note)
                     }
                 }
             }
         }
     }
 
-    return @($results | Sort-Object Path -Unique)
+    return @($results | Sort-Object Path, Kind -Unique)
 }
 
 function Get-KobraFilesForBrowserItem {
@@ -168,39 +440,44 @@ function Get-KobraFilesForBrowserItem {
     }
 
     if (($Item.Kind -eq 'File') -and (Test-Path -LiteralPath $Item.Path)) {
-        return @(Get-Item -LiteralPath $Item.Path -Force -ErrorAction SilentlyContinue)
+        $file = Get-Item -LiteralPath $Item.Path -Force -ErrorAction SilentlyContinue
+        if ($null -ne $file) {
+            return @($file)
+        }
     }
 
     return @()
 }
 
-function Clear-KobraPathContents {
-    param(
-        [string]$Path,
-        [scriptblock]$Log
-    )
+function Remove-KobraEmptyDirectories {
+    param([string]$RootPath)
 
-    if (-not (Test-Path -LiteralPath $Path)) {
-        return 0
+    if (-not (Test-Path -LiteralPath $RootPath)) {
+        return
     }
 
-    $removed = 0
-    $items = Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue
-    foreach ($item in $items) {
+    $dirs = @(Get-ChildItem -LiteralPath $RootPath -Recurse -Directory -Force -ErrorAction SilentlyContinue | Sort-Object FullName -Descending)
+    foreach ($dir in $dirs) {
         try {
-            Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction Stop
-            $removed++
+            if ((Get-ChildItem -LiteralPath $dir.FullName -Force -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0) {
+                Remove-Item -LiteralPath $dir.FullName -Force -ErrorAction Stop
+            }
         }
         catch {
         }
     }
-    return $removed
 }
 
 function Test-KobraBrowserRunning {
-    param([string]$ProcessName)
+    param([string[]]$ProcessNames)
 
-    return [bool](Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
+    foreach ($processName in @($ProcessNames)) {
+        if (Get-Process -Name $processName -ErrorAction SilentlyContinue) {
+            return $true
+        }
+    }
+
+    return $false
 }
 
 function Get-KobraBrowserPreview {
@@ -220,14 +497,16 @@ function Get-KobraBrowserPreview {
 
         foreach ($component in $Components) {
             $componentItems = @(Get-KobraBrowserComponentItems -Browser $browser -Component $component)
-            $files = @()
-            foreach ($item in $componentItems) {
-                $files += @(Get-KobraFilesForBrowserItem -Item $item)
-            }
+            $uniqueFiles = @{}
+            [int64]$bytes = 0
 
-            $bytes = [int64]0
-            foreach ($file in $files) {
-                if ($null -ne $file) {
+            foreach ($item in $componentItems) {
+                foreach ($file in @(Get-KobraFilesForBrowserItem -Item $item)) {
+                    if ($null -eq $file -or $uniqueFiles.ContainsKey($file.FullName)) {
+                        continue
+                    }
+
+                    $uniqueFiles[$file.FullName] = $true
                     $bytes += [int64]$file.Length
                 }
             }
@@ -236,7 +515,7 @@ function Get-KobraBrowserPreview {
             $results += [pscustomobject]@{
                 Key       = ('{0}_{1}' -f $browser, $component)
                 Name      = ('{0} {1}' -f $catalog[$browser].Name, $componentInfo.Suffix)
-                Items     = @($files).Count
+                Items     = $uniqueFiles.Count
                 SizeBytes = $bytes
                 SizeMB    = [Math]::Round(($bytes / 1MB), 2)
                 Note      = $componentInfo.Note
@@ -261,6 +540,7 @@ function Invoke-KobraBrowserCleanup {
     }
 
     $catalog = Get-KobraBrowserCatalog
+    $results = @()
     Write-KobraModuleLog -Log $Log -Message 'Starting browser cleanup...'
 
     foreach ($browser in $Browsers) {
@@ -269,42 +549,95 @@ function Invoke-KobraBrowserCleanup {
         }
 
         $entry = $catalog[$browser]
-        $isRunning = Test-KobraBrowserRunning -ProcessName $entry.ProcessName
+        $isRunning = Test-KobraBrowserRunning -ProcessNames $entry.ProcessNames
         if ($isRunning) {
             Write-KobraModuleLog -Log $Log -Message ("{0} appears to be open. Locked files may be skipped." -f $entry.Name)
         }
 
         foreach ($component in $Components) {
             $componentInfo = Get-KobraBrowserComponentInfo -Component $component
+            $category = ('{0} {1}' -f $entry.Name, $componentInfo.Suffix)
             Write-KobraModuleLog -Log $Log -Message ("Cleaning browser {0}: {1}" -f $component.ToLower(), $entry.Name)
-            $componentItems = @(Get-KobraBrowserComponentItems -Browser $browser -Component $component)
 
+            $componentItems = @(Get-KobraBrowserComponentItems -Browser $browser -Component $component)
             if ((Get-KobraSafeCount $componentItems) -eq 0) {
                 Write-KobraModuleLog -Log $Log -Message '  No matching browser data found.'
+                $results += @(New-KobraBrowserResult -Category $category -Reason $componentInfo.Note)
                 continue
             }
 
-            $removed = 0
+            $filesByPath = @{}
+            $directoryRoots = @{}
             foreach ($item in $componentItems) {
-                try {
-                    if ($item.Kind -eq 'Directory') {
-                        $removed += Clear-KobraPathContents -Path $item.Path -Log $Log
-                    }
-                    elseif ((Test-Path -LiteralPath $item.Path)) {
-                        Remove-Item -LiteralPath $item.Path -Force -ErrorAction Stop
-                        $removed++
-                    }
+                if ($item.Kind -eq 'Directory') {
+                    $directoryRoots[$item.Path] = $true
                 }
-                catch {
-                    Write-KobraModuleLog -Log $Log -Message ("  Skipped locked browser item: {0}" -f $item.Path)
+
+                foreach ($file in @(Get-KobraFilesForBrowserItem -Item $item)) {
+                    if ($null -ne $file) {
+                        $filesByPath[$file.FullName] = $file
+                    }
                 }
             }
 
-            Write-KobraModuleLog -Log $Log -Message ("  {0}: removed {1} records. {2}" -f $componentInfo.Suffix, $removed, $componentInfo.Note)
+            if ($filesByPath.Count -eq 0) {
+                Write-KobraModuleLog -Log $Log -Message '  No matching browser data found.'
+                $results += @(New-KobraBrowserResult -Category $category -Reason $componentInfo.Note)
+                continue
+            }
+
+            $foundCount = 0
+            $attemptedCount = 0
+            $removedCount = 0
+            $skippedCount = 0
+            $failedCount = 0
+            $lockedCount = 0
+            [int64]$foundBytes = 0
+            [int64]$removedBytes = 0
+
+            foreach ($path in ($filesByPath.Keys | Sort-Object)) {
+                $file = $filesByPath[$path]
+                $foundCount++
+                $attemptedCount++
+                $fileBytes = [int64]$file.Length
+                $foundBytes += $fileBytes
+
+                try {
+                    Remove-Item -LiteralPath $path -Force -ErrorAction Stop
+                    $removedCount++
+                    $removedBytes += $fileBytes
+                }
+                catch {
+                    $kind = Get-KobraFailureKind -Message $_.Exception.Message
+                    switch ($kind) {
+                        'locked' {
+                            $lockedCount++
+                            $skippedCount++
+                            Write-KobraModuleLog -Log $Log -Message ("  Skipped locked browser item: {0}" -f $path)
+                        }
+                        'permission' {
+                            $failedCount++
+                            Write-KobraModuleLog -Log $Log -Message ("  Failed browser item (permission issue): {0}" -f $path)
+                        }
+                        default {
+                            $failedCount++
+                            Write-KobraModuleLog -Log $Log -Message ("  Failed browser item: {0}" -f $path)
+                        }
+                    }
+                }
+            }
+
+            foreach ($root in $directoryRoots.Keys) {
+                Remove-KobraEmptyDirectories -RootPath $root
+            }
+
+            Write-KobraModuleLog -Log $Log -Message ("  {0}: found={1}; attempted={2}; removed={3}; skipped={4}; failed={5}; locked={6}. {7}" -f $componentInfo.Suffix, $foundCount, $attemptedCount, $removedCount, $skippedCount, $failedCount, $lockedCount, $componentInfo.Note)
+            $results += @(New-KobraBrowserResult -Category $category -FoundCount $foundCount -AttemptedCount $attemptedCount -RemovedCount $removedCount -SkippedCount $skippedCount -FailedCount $failedCount -LockedCount $lockedCount -FoundBytes $foundBytes -RemovedBytes $removedBytes -Reason $componentInfo.Note)
         }
     }
 
     Write-KobraModuleLog -Log $Log -Message 'Browser cleanup complete.'
+    return $results
 }
 
 function Get-KobraBrowserCandidates {
@@ -324,9 +657,14 @@ function Get-KobraBrowserCandidates {
 
         foreach ($component in $Components) {
             $componentItems = @(Get-KobraBrowserComponentItems -Browser $browser -Component $component)
+            $seen = @{}
             foreach ($item in $componentItems) {
-                $files = @(Get-KobraFilesForBrowserItem -Item $item)
-                foreach ($file in $files) {
+                foreach ($file in @(Get-KobraFilesForBrowserItem -Item $item)) {
+                    if ($null -eq $file -or $seen.ContainsKey($file.FullName)) {
+                        continue
+                    }
+
+                    $seen[$file.FullName] = $true
                     $results += [pscustomobject]@{
                         Category  = $item.Category
                         Path      = $file.FullName

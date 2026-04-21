@@ -48,6 +48,12 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
 
+        <Style x:Key="BodyTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
 
         <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Segoe UI Variable Display"/>
@@ -373,22 +379,15 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Margin="0,4,0,6">
-                    <TextBlock Text="KOBRA" Foreground="{StaticResource AccentBrush}" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    <TextBlock Text="OPTIMIZER" Foreground="{StaticResource WhiteMutedTextBrush}" FontSize="11" HorizontalAlignment="Center" Margin="0,-3,0,10"/>
-                    <Grid Width="156" Height="124" HorizontalAlignment="Center" Margin="0,0,0,18">
-                        <Image Name="KobraLogo"
-                               Width="136"
-                               Height="136"
-                               Stretch="Uniform"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               RenderOptions.BitmapScalingMode="HighQuality">
-                            <Image.Effect>
-                                <DropShadowEffect Color="#FF5A75" BlurRadius="18" ShadowDepth="0" Opacity="0.28"/>
-                            </Image.Effect>
-                        </Image>
-                    </Grid>
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="KOBRA" Foreground="{StaticResource AccentBrush}" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="OPTIMIZER" Foreground="{StaticResource WhiteMutedTextBrush}" FontSize="11" HorizontalAlignment="Center" Margin="0,-3,0,12"/>
+                    <Border Width="122" Height="122" CornerRadius="18" Background="#523941" BorderBrush="#7A5864" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,18">
+                        <Grid>
+                            <Ellipse Width="96" Height="96" Fill="#613640" Stroke="#FF5A75" StrokeThickness="1.2"/>
+                            <Image Name="KobraLogo" Width="96" Height="96" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        </Grid>
+                    </Border>
                 </StackPanel>
 
                 <ScrollViewer Grid.Row="1" Margin="0,2,0,12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -517,14 +516,14 @@
                                     <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Background="#FFF8FB">
                                         <StackPanel>
                                             <TextBlock Text="Recommended scan profile" FontSize="18" FontWeight="SemiBold"/>
-                                            <TextBlock Text="- User Temp&#x0a;- System Temp&#x0a;- Windows Update Cache&#x0a;- Thumbnail / Icon Cache&#x0a;- Recycle Bin&#x0a;- Chrome and Edge browser cache" Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                <TextBlock Text="- User Temp&#x0a;- System Temp&#x0a;- Windows Update Cache&#x0a;- Thumbnail / Icon Cache&#x0a;- Recycle Bin&#x0a;- Browser cache, cookies, and history" Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
                                         </StackPanel>
                                     </Border>
                                 </Grid>
 
                                 <UniformGrid Columns="3" Margin="0,4,0,0">
                                     <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0" Background="#FFF8FB"><StackPanel><TextBlock Text="System junk" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Temp files, update cache, icon cache, and recycle bin in one pass." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/></StackPanel></Border>
-                                    <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0" Background="#FFF8FB"><StackPanel><TextBlock Text="Browser cleanup" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Chrome, Edge, and Firefox cache options with optional cookie cleanup. Bookmarks and saved passwords stay preserved." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/></StackPanel></Border>
+                                        <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0" Background="#FFF8FB"><StackPanel><TextBlock Text="Browser cleanup" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Broader browser coverage with cache, cookie, and history options while keeping bookmarks and saved passwords intact." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/></StackPanel></Border>
                                     <Border Style="{StaticResource CardBorderStyle}" Background="#FFF8FB"><StackPanel><TextBlock Text="Safe flow" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Analyze first, review the results, then confirm before running cleanup." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/></StackPanel></Border>
                                 </UniformGrid>
                             </StackPanel>
@@ -586,19 +585,24 @@
                                         <Border Style="{StaticResource CardBorderStyle}">
                                             <StackPanel>
                                                 <TextBlock Text="Browser cleanup" Style="{StaticResource SectionTitleStyle}"/>
-                                                <TextBlock Text="Keep browser choices explicit so cookie cleanup and browser caches stay easy to understand." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,10"/>
+                                                <TextBlock Text="Scan real browser cache, cookies, and browsing history without touching bookmarks or saved passwords." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,10"/>
                                                 <StackPanel>
                                                     <CheckBox Name="ChkChrome" Content="Google Chrome" Style="{StaticResource CleanCheckBoxStyle}"/>
                                                     <CheckBox Name="ChkEdge" Content="Microsoft Edge" Style="{StaticResource CleanCheckBoxStyle}"/>
                                                     <CheckBox Name="ChkFirefox" Content="Firefox" Style="{StaticResource CleanCheckBoxStyle}"/>
+                                                    <CheckBox Name="ChkOpera" Content="Opera / Opera GX" Style="{StaticResource CleanCheckBoxStyle}"/>
+                                                    <CheckBox Name="ChkBrave" Content="Brave" Style="{StaticResource CleanCheckBoxStyle}"/>
+                                                    <CheckBox Name="ChkVivaldi" Content="Vivaldi" Style="{StaticResource CleanCheckBoxStyle}"/>
                                                     <CheckBox Name="ChkBrowserCookies" Content="Include cookies (may sign you out)" Style="{StaticResource CleanCheckBoxStyle}"/>
-                                                    <CheckBox Name="ChkBrowserBackupBundle" Content="Create system backup bundle before clean" Style="{StaticResource CleanCheckBoxStyle}"/>
+                                                    <CheckBox Name="ChkBrowserHistory" Content="Include browsing history where safe to remove" Style="{StaticResource CleanCheckBoxStyle}"/>
+                                                    <CheckBox Name="ChkBrowserBackupBundle" Content="Create system backup bundle before clean" Style="{StaticResource CleanCheckBoxStyle}" Visibility="Collapsed" IsChecked="False"/>
+                                                    <TextBlock Text="Backups run separately. Use Create Backup before cleaning if you want a full safety bundle." Style="{StaticResource BodyTextStyle}" Margin="0,4,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"/>
                                                 </StackPanel>
                                                 <WrapPanel Margin="0,16,0,0">
                                                     <Button Name="BtnBrowserScan" Content="Scan Browser" Width="150" Style="{StaticResource PrimaryButtonStyle}"/>
                                                     <Button Name="BtnBrowserClean" Content="Clean Browser" Width="150" Style="{StaticResource SecondaryButtonStyle}" IsEnabled="False" Margin="0,0,0,0"/>
                                                 </WrapPanel>
-                                                <TextBlock Text="Bookmarks and saved passwords are preserved. Cookies are only removed if selected." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                                <TextBlock Text="Bookmarks and saved passwords are preserved. Cookies and history are only removed if selected." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
                                             </StackPanel>
                                         </Border>
 
@@ -608,13 +612,16 @@
                                                 <TextBlock Text="Safe registry traces only. Review grouped trace results on the Results page before cleaning." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,10"/>
                                                 <StackPanel>
                                                     <CheckBox Name="ChkRegistryClean" Content="Registry traces (Run history, Typed Paths, Recent Docs)" Style="{StaticResource CleanCheckBoxStyle}"/>
-                                                    <CheckBox Name="ChkRegistryBackup" Content="Create registry backup before cleanup" Style="{StaticResource CleanCheckBoxStyle}" IsChecked="True"/>
+                                                    <CheckBox Name="ChkRegistryBackup" Content="Create registry backup before cleanup" Style="{StaticResource CleanCheckBoxStyle}" Visibility="Collapsed" IsChecked="False"/>
+                                                    <TextBlock Text="Registry Backup is a separate step. Click Backup Registry first, then run Registry Clean." Style="{StaticResource BodyTextStyle}" Margin="0,4,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"/>
+                                                    <TextBlock Name="TxtRegistryBackupStatus" Text="Registry backup status: No backup yet" Style="{StaticResource BodyTextStyle}" Margin="0,6,0,0" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap"/>
                                                 </StackPanel>
                                                 <WrapPanel Margin="0,16,0,0">
-                                                    <Button Name="BtnRegistryScan" Content="Scan Registry" Width="150" Style="{StaticResource PrimaryButtonStyle}"/>
-                                                    <Button Name="BtnRegistryClean" Content="Clean Registry" Width="150" Style="{StaticResource SecondaryButtonStyle}" IsEnabled="False" Margin="0,0,0,0"/>
+                                                    <Button Name="BtnRegistryScan" Content="Scan Registry" Width="140" Style="{StaticResource PrimaryButtonStyle}"/>
+                                                    <Button Name="BtnRegistryBackup" Content="Backup Registry" Width="150" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                    <Button Name="BtnRegistryClean" Content="Clean Registry" Width="140" Style="{StaticResource SecondaryButtonStyle}" IsEnabled="False" Margin="0,0,0,0"/>
                                                 </WrapPanel>
-                                                <TextBlock Text="A .reg backup bundle is created before any selected registry traces are removed." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                                <TextBlock Text="Back up registry traces first, then clean. Missing keys are skipped automatically." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -654,6 +661,7 @@
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock Text="Review Results" Style="{StaticResource PageTitleStyle}"/>
+                                <TextBlock Name="TxtResultsMode" Text="Scan completed" Foreground="{StaticResource AccentBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,0"/>
                                 <TextBlock Text="Review the items Kobra found, confirm the selected categories, then clean when you are ready." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -692,6 +700,9 @@
                                                 <TextBlock Text="Create backups from the Tools page before deeper changes." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
                                                 <WrapPanel Margin="0,12,0,0">
                                                     <Button Name="BtnRunSelected" Content="Clean Selected" Width="150" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,0,0"/>
+                                                    <Button Name="BtnResultsRescan" Content="Rescan" Width="120" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0"/>
+                                                    <Button Name="BtnResultsBackCustom" Content="Back to Custom Clean" Width="180" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0"/>
+                                                    <Button Name="BtnResultsOpenDebugLog" Content="Open Debug Log" Width="150" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0"/>
                                                 </WrapPanel>
                                             </StackPanel>
                                         </Border>
