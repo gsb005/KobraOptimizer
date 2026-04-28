@@ -152,10 +152,13 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.95"/>
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="1"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF7088"/>
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#FFF0F4"/>
+                                <Setter TargetName="ButtonBorder" Property="BorderThickness" Value="2"/>
                                 <Setter Property="Effect">
                                     <Setter.Value>
-                                        <DropShadowEffect Color="#FF5A75" BlurRadius="30" ShadowDepth="0" Opacity="0.78"/>
+                                        <DropShadowEffect Color="#FF5A75" BlurRadius="46" ShadowDepth="0" Opacity="1"/>
                                     </Setter.Value>
                                 </Setter>
                             </Trigger>
@@ -173,6 +176,11 @@
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="42"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#FF5A75" BlurRadius="10" ShadowDepth="0" Opacity="0.12"/>
+                </Setter.Value>
+            </Setter>
             <Setter Property="MinWidth" Value="140"/>
             <Setter Property="Padding" Value="18,0"/>
             <Setter Property="Margin" Value="0,0,10,0"/>
@@ -194,8 +202,14 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FFF7FA"/>
-                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#DDBFC8"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FFF0F5"/>
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="ButtonBorder" Property="BorderThickness" Value="2"/>
+                                <Setter Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect Color="#FF5A75" BlurRadius="34" ShadowDepth="0" Opacity="0.86"/>
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="ButtonBorder" Property="Background" Value="#F5F1F3"/>
@@ -380,25 +394,19 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0">
-                    <TextBlock Text="KOBRA" Foreground="{StaticResource AccentBrush}" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    <TextBlock Text="OPTIMIZER" Foreground="{StaticResource WhiteMutedTextBrush}" FontSize="11" HorizontalAlignment="Center" Margin="0,-3,0,12"/>
-                    <Border Width="122" Height="122" CornerRadius="18" Background="#523941" BorderBrush="#7A5864" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,18">
-                        <Grid>
-                            <Ellipse Width="96" Height="96" Fill="#613640" Stroke="#FF5A75" StrokeThickness="1.2"/>
-                            <Image Name="KobraLogo" Width="96" Height="96" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                        </Grid>
-                    </Border>
+                    <Image Name="KobraLogo" Width="260" Height="260" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" Margin="0,-58,0,0"/>
                 </StackPanel>
 
-                <ScrollViewer Grid.Row="1" Margin="0,2,0,12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer Grid.Row="1" Margin="0,-14,0,12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
                         <Button Name="BtnNavDashboard" Content="Dashboard" Style="{StaticResource SidebarNavButtonStyle}"/>
-                        <Button Name="BtnNavAnalyze" Content="Quick Scan" Style="{StaticResource SidebarNavButtonStyle}"/>
+                        <Button Name="BtnNavAnalyze" Content="Health Check" Style="{StaticResource SidebarNavButtonStyle}"/>
                         <Button Name="BtnNavCustomClean" Content="Custom Clean" Style="{StaticResource SidebarNavButtonStyle}"/>
                         <Button Name="BtnNavResults" Content="Results" Style="{StaticResource SidebarNavButtonStyle}"/>
                         <Button Name="BtnNavTools" Content="Performance" Style="{StaticResource SidebarNavButtonStyle}"/>
+                        <Button Name="BtnNavTls" Content="TLS / Security" Style="{StaticResource SidebarNavButtonStyle}"/>
                         <Button Name="BtnNavStartup" Content="Startup Manager" Style="{StaticResource SidebarNavButtonStyle}"/>
-                        <Button Name="BtnNavUtilities" Content="Tools" Style="{StaticResource SidebarNavButtonStyle}"/>
+                        <Button Name="BtnNavUtilities" Content="Support" Style="{StaticResource SidebarNavButtonStyle}"/>
                         <Button Name="BtnNavAbout" Content="About" Style="{StaticResource SidebarNavButtonStyle}"/>
                     </StackPanel>
                 </ScrollViewer>
@@ -406,7 +414,7 @@
                 <StackPanel Grid.Row="2">
                     <Border Background="#5A414A" BorderBrush="#7A5864" BorderThickness="1" CornerRadius="14" Padding="14" Margin="0,0,0,10">
                         <StackPanel>
-                            <TextBlock Text="v1.8.8 section results" Foreground="{StaticResource AccentBrush}" FontWeight="Bold"/>
+                            <TextBlock Text="v1.8.9 section results" Foreground="{StaticResource AccentBrush}" FontWeight="Bold"/>
                             <TextBlock Text="Red neon shell, visible registry cleanup, backup-first registry traces, and cleaner option styling." Foreground="{StaticResource WhiteMutedTextBrush}" TextWrapping="Wrap" FontSize="12" Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>
@@ -439,8 +447,7 @@
                                             <TextBlock Text="Kobra Control Center" Style="{StaticResource PageTitleStyle}"/>
                                             <TextBlock Text="A cleaner, guided place to scan clutter, review results, optimize performance, and manage startup apps." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
                                             <WrapPanel>
-                                                <Button Name="BtnDashboardQuickScan" Content="Quick Scan" Width="148" Style="{StaticResource PrimaryButtonStyle}"/>
-                                                <Button Name="BtnQuickShed" Content="Quick Shed" Width="148" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                <Button Name="BtnDashboardQuickScan" Content="Health Check" Width="148" Style="{StaticResource PrimaryButtonStyle}"/>
                                                 <Button Name="BtnDashboardCustomClean" Content="Custom Clean" Width="148" Style="{StaticResource SecondaryButtonStyle}"/>
                                                 <Button Name="BtnDashboardPerformance" Content="Performance" Width="148" Style="{StaticResource SecondaryButtonStyle}"/>
                                                 <Button Name="BtnDashboardStartup" Content="Startup Manager" Width="168" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
@@ -450,7 +457,7 @@
                                     <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Background="#FFF8FB">
                                         <StackPanel>
                                             <TextBlock Text="Safety first" FontSize="17" FontWeight="SemiBold"/>
-                                            <TextBlock Name="TxtDashSafety" Text="No backup bundle yet. Create one before deep system changes." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,0"/>
+                                            <TextBlock Name="TxtDashSafety" Text="No safety backup yet. Create one before deeper system changes." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,0"/>
                                         </StackPanel>
                                     </Border>
                                 </Grid>
@@ -495,8 +502,8 @@
                     <Grid Name="ViewAnalyze" Visibility="Collapsed">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
-                                <TextBlock Text="Quick Scan" Style="{StaticResource PageTitleStyle}"/>
-                                <TextBlock Text="Run the recommended scan path, then move into a cleaner review screen with totals and selected actions." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
+                                <TextBlock Text="Health Check" Style="{StaticResource PageTitleStyle}"/>
+                                <TextBlock Text="Run the recommended machine snapshot, then move into cleanup results or deeper tuning with more context." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="1.1*"/>
@@ -504,28 +511,38 @@
                                     </Grid.ColumnDefinitions>
                                     <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Margin="0,0,16,0">
                                         <StackPanel>
-                                            <TextBlock Name="TxtAnalyzeStage" Text="Quick Scan is ready" FontSize="28" FontWeight="SemiBold"/>
-                                            <TextBlock Name="TxtAnalyzeSubStage" Text="Run the recommended scan here, or open Custom Clean to fine-tune what Kobra reviews." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,18"/>
+                                            <TextBlock Name="TxtAnalyzeStage" Text="Health Check is ready" FontSize="28" FontWeight="SemiBold"/>
+                                            <TextBlock Name="TxtAnalyzeSubStage" Text="Run a machine health snapshot here, or open Custom Clean to fine-tune what Kobra reviews." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,18"/>
                                             <WrapPanel Margin="0,0,0,6">
-                                                <Button Name="BtnAnalyze" Content="Run Quick Scan" Width="170" Style="{StaticResource PrimaryButtonStyle}"/>
+                                                <Button Name="BtnAnalyze" Content="Run Health Check" Width="170" Style="{StaticResource PrimaryButtonStyle}"/>
+                                                <Button Name="BtnHealthReviewResults" Content="Review Cleanup Results" Width="190" Style="{StaticResource SecondaryButtonStyle}"/>
                                                 <Button Name="BtnQuickScanCustomize" Content="Open Custom Clean" Width="170" Style="{StaticResource SecondaryButtonStyle}"/>
-                                                <Button Name="BtnQuickScanBackup" Content="Create Backup" Width="150" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
+                                                <Button Name="BtnQuickScanBackup" Content="Create Safety Backup" Width="170" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
                                     <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Background="#FFF8FB">
                                         <StackPanel>
-                                            <TextBlock Text="Recommended scan profile" FontSize="18" FontWeight="SemiBold"/>
-                                <TextBlock Text="- User Temp&#x0a;- System Temp&#x0a;- Windows Update Cache&#x0a;- Thumbnail / Icon Cache&#x0a;- Recycle Bin&#x0a;- Browser cache, cookies, and history" Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                            <TextBlock Text="Health snapshot includes" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="- Reclaimable cleanup space&#x0a;- TLS / security posture&#x0a;- DNS providers and adapters&#x0a;- Startup load&#x0a;- Registry traces&#x0a;- Backup and safety state" Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
                                         </StackPanel>
                                     </Border>
                                 </Grid>
 
                                 <UniformGrid Columns="3" Margin="0,4,0,0">
-                                    <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0" Background="#FFF8FB"><StackPanel><TextBlock Text="System junk" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Temp files, update cache, icon cache, and recycle bin in one pass." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/></StackPanel></Border>
-                                        <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0" Background="#FFF8FB"><StackPanel><TextBlock Text="Browser cleanup" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Broader browser coverage with cache, cookie, and history options while keeping bookmarks and saved passwords intact." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/></StackPanel></Border>
-                                    <Border Style="{StaticResource CardBorderStyle}" Background="#FFF8FB"><StackPanel><TextBlock Text="Safe flow" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Analyze first, review the results, then confirm before running cleanup." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/></StackPanel></Border>
+                                    <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,12" Background="#FFF8FB"><StackPanel><TextBlock Text="Cleanup Potential" FontSize="17" FontWeight="SemiBold"/><TextBlock Name="TxtHealthCleanup" Text="Run Health Check to estimate reclaimable space." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/></StackPanel></Border>
+                                    <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,12" Background="#FFF8FB"><StackPanel><TextBlock Text="TLS / Security" FontSize="17" FontWeight="SemiBold"/><TextBlock Name="TxtHealthTls" Text="Run Health Check to inspect TLS posture." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/></StackPanel></Border>
+                                    <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,12" Background="#FFF8FB"><StackPanel><TextBlock Text="DNS Status" FontSize="17" FontWeight="SemiBold"/><TextBlock Name="TxtHealthDns" Text="Run Health Check to review current DNS providers." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/></StackPanel></Border>
+                                    <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0" Background="#FFF8FB"><StackPanel><TextBlock Text="Startup Load" FontSize="17" FontWeight="SemiBold"/><TextBlock Name="TxtHealthStartup" Text="Current startup load will appear here." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/></StackPanel></Border>
+                                    <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0" Background="#FFF8FB"><StackPanel><TextBlock Text="Registry Traces" FontSize="17" FontWeight="SemiBold"/><TextBlock Name="TxtHealthRegistry" Text="Safe trace categories will appear here." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/></StackPanel></Border>
+                                    <Border Style="{StaticResource CardBorderStyle}" Background="#FFF8FB"><StackPanel><TextBlock Text="Safety State" FontSize="17" FontWeight="SemiBold"/><TextBlock Name="TxtHealthSafety" Text="Backup and recovery readiness will appear here." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/></StackPanel></Border>
                                 </UniformGrid>
+                                <Border Style="{StaticResource CardBorderStyle}" Margin="0,16,0,0" Background="{StaticResource CardAltBrush}">
+                                    <StackPanel>
+                                        <TextBlock Text="Tips and next steps" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock Name="TxtHealthTips" Text="Kobra will surface practical callouts here after the health check runs." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
@@ -595,8 +612,8 @@
                                                     <CheckBox Name="ChkVivaldi" Content="Vivaldi" Style="{StaticResource CleanCheckBoxStyle}"/>
                                                     <CheckBox Name="ChkBrowserCookies" Content="Include cookies (may sign you out)" Style="{StaticResource CleanCheckBoxStyle}"/>
                                                     <CheckBox Name="ChkBrowserHistory" Content="Include browsing history where safe to remove" Style="{StaticResource CleanCheckBoxStyle}"/>
-                                                    <CheckBox Name="ChkBrowserBackupBundle" Content="Create system backup bundle before clean" Style="{StaticResource CleanCheckBoxStyle}" Visibility="Collapsed" IsChecked="False"/>
-                                                    <TextBlock Text="Backups run separately. Use Create Backup before cleaning if you want a full safety bundle." Style="{StaticResource BodyTextStyle}" Margin="0,4,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"/>
+                                                    <CheckBox Name="ChkBrowserBackupBundle" Content="Create safety backup before clean" Style="{StaticResource CleanCheckBoxStyle}" Visibility="Collapsed" IsChecked="False"/>
+                                                    <TextBlock Text="Safety backups run separately. Use Create Safety Backup before cleaning if you want DNS, TLS, and network-related recovery files saved first." Style="{StaticResource BodyTextStyle}" Margin="0,4,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"/>
                                                 </StackPanel>
                                                 <WrapPanel Margin="0,16,0,0">
                                                     <Button Name="BtnBrowserScan" Content="Scan Browser" Width="150" Style="{StaticResource PrimaryButtonStyle}"/>
@@ -641,7 +658,7 @@
                                             <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0" Background="{StaticResource CardAltBrush}">
                                                 <StackPanel>
                                                     <TextBlock Text="Why Custom Clean" FontSize="17" FontWeight="SemiBold"/>
-                                                    <TextBlock Text="Keep the simple Quick Scan path separate from deeper category tuning and safe registry trace cleanup." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                                    <TextBlock Text="Keep the simple Health Check path separate from deeper category tuning and safe registry trace cleanup." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
                                                 </StackPanel>
                                             </Border>
                                             <Border Style="{StaticResource CardBorderStyle}" Background="{StaticResource CardAltBrush}">
@@ -697,12 +714,11 @@
                                         <Border Style="{StaticResource CardBorderStyle}" Background="#FFF8FB">
                                             <StackPanel>
                                                 <TextBlock Text="Actions" FontSize="18" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Create backups from the Tools page before deeper changes." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                                <TextBlock Text="Create safety backups from the Support page before deeper changes." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
                                                 <WrapPanel Margin="0,12,0,0">
                                                     <Button Name="BtnRunSelected" Content="Clean Selected" Width="150" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,0,0"/>
                                                     <Button Name="BtnResultsRescan" Content="Rescan" Width="120" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0"/>
                                                     <Button Name="BtnResultsBackCustom" Content="Back to Custom Clean" Width="180" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0"/>
-                                                    <Button Name="BtnResultsOpenDebugLog" Content="Open Debug Log" Width="150" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0"/>
                                                 </WrapPanel>
                                             </StackPanel>
                                         </Border>
@@ -726,7 +742,6 @@
                                         <GroupBox Header="Performance actions">
                                             <StackPanel>
                                                 <CheckBox Name="ChkRestorePoint" Content="Create restore point before deeper system changes"/>
-                                                <CheckBox Name="ChkRegistry" Content="TLS and registry hardening"/>
                                                 <CheckBox Name="ChkNetwork" Content="Network TCP strike"/>
                                                 <CheckBox Name="ChkDnsFlush" Content="Flush DNS cache"/>
                                                 <CheckBox Name="ChkDnsProfile" Content="Apply DNS profile"/>
@@ -740,8 +755,14 @@
                                         </GroupBox>
                                         <WrapPanel>
                                             <Button Name="BtnPerformanceApply" Content="Apply Selected" Width="160" Style="{StaticResource PrimaryButtonStyle}"/>
-                                            <Button Name="BtnPerformanceBackup" Content="Create Backup" Width="150" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
+                                            <Button Name="BtnPerformanceBackup" Content="Create Safety Backup" Width="170" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
                                         </WrapPanel>
+                                        <Border Style="{StaticResource CardBorderStyle}" Background="{StaticResource CardAltBrush}" Margin="0,14,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="TLS / Security moved to its own page" FontSize="18" FontWeight="SemiBold"/>
+                                                <TextBlock Text="TLS hardening now lives in a separate workflow so it cannot run during cleanup or normal performance actions. Open the dedicated TLS / Security page from the sidebar to scan, preview, back up, apply, or restore TLS settings." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1">
                                         <GroupBox Header="Windows shortcuts">
@@ -763,6 +784,122 @@
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <Grid Name="ViewTls" Visibility="Collapsed">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="TLS / Security" Style="{StaticResource PageTitleStyle}"/>
+                                <TextBlock Text="Scan current Windows TLS settings safely, compare them to a selected profile, preview exact registry-backed changes, back up the targeted branches, then apply only when you choose to." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
+
+                                <UniformGrid Columns="4" Margin="0,0,0,18">
+                                    <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,0">
+                                        <StackPanel>
+                                            <TextBlock Text="STATUS" Foreground="{StaticResource MutedTextBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Name="TxtTlsStatusBadge" Text="Needs review" FontSize="24" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,0">
+                                        <StackPanel>
+                                            <TextBlock Text="LEGACY" Foreground="{StaticResource MutedTextBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Name="TxtTlsLegacyState" Text="Run Scan TLS to inspect legacy protocol posture safely." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,0">
+                                        <StackPanel>
+                                            <TextBlock Text="MODERN" Foreground="{StaticResource MutedTextBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Name="TxtTlsModernState" Text="Modern protocol state will appear here after scanning." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource StatCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text=".NET" Foreground="{StaticResource MutedTextBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Name="TxtTlsDotNetState" Text=".NET strong crypto state will appear here after scanning." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                </UniformGrid>
+
+                                <Grid Margin="0,0,0,18">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="0.95*"/>
+                                        <ColumnDefinition Width="1.05*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Margin="0,0,16,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Profile selection" FontSize="18" FontWeight="SemiBold"/>
+                                            <TextBlock Text="Choose a profile, then scan or preview. Only the Recommended / Modern profile writes changes in this build." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,12"/>
+                                            <TextBlock Text="Preset" FontWeight="SemiBold"/>
+                                            <ComboBox Name="CmbTlsPreset" Width="320" Margin="0,8,0,0">
+                                                <ComboBoxItem Content="Recommended / Modern baseline"/>
+                                                <ComboBoxItem Content="Compatible review-only profile"/>
+                                                <ComboBoxItem Content="Strict / Hardened preview"/>
+                                            </ComboBox>
+                                            <TextBlock Name="TxtTlsProfileDescription" Text="Recommended modern baseline. Disable SSL 2.0, SSL 3.0, TLS 1.0, and TLS 1.1. Preserve or re-enable TLS 1.2 and TLS 1.3. Enable .NET strong crypto and system-default TLS flags." Style="{StaticResource PageSubTitleStyle}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                                            <WrapPanel Margin="0,14,0,0">
+                                                <Button Name="BtnTlsScan" Content="Scan TLS" Width="120" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                <Button Name="BtnTlsRecommend" Content="Use Recommended" Width="155" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                <Button Name="BtnTlsPreview" Content="Preview Changes" Width="150" Style="{StaticResource SecondaryButtonStyle}"/>
+                                            </WrapPanel>
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Name="BtnTlsBackup" Content="Backup TLS Settings" Width="170" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                <Button Name="BtnTlsBackupLocation" Content="Backup Location" Width="145" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                <Button Name="BtnTlsApply" Content="Apply TLS Baseline" Width="170" Style="{StaticResource PrimaryButtonStyle}" IsEnabled="False"/>
+                                                <Button Name="BtnTlsRestore" Content="Restore TLS Backup" Width="165" Style="{StaticResource SecondaryButtonStyle}" IsEnabled="False"/>
+                                            </WrapPanel>
+                                            <CheckBox Name="ChkTlsRestorePoint" Content="Create restore point before apply" Margin="0,14,0,0"/>
+                                            <TextBlock Name="TxtTlsBackupStatus" Text="No TLS backup created yet." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Background="#FFF8FB">
+                                        <StackPanel>
+                                            <TextBlock Text="Current status" FontSize="18" FontWeight="SemiBold"/>
+                                            <TextBlock Name="TxtTlsSummary" Text="TLS scan has not been run yet." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                            <TextBlock Name="TxtTlsRecommendation" Text="Recommended modern baseline. Disable SSL 2.0, SSL 3.0, TLS 1.0, and TLS 1.1. Preserve or re-enable TLS 1.2 and TLS 1.3. Enable .NET strong crypto and system-default TLS flags." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                            <TextBox Name="TxtTlsProtocols" Margin="0,12,0,0" MinHeight="170" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Background="#FFFFFF" BorderBrush="{StaticResource BorderSoftBrush}" VerticalScrollBarVisibility="Auto"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <TextBlock Text="Detailed matrix" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Current state, selected profile, and action preview for each supported TLS target. Missing values are treated as Default / Not configured, and unsupported items are skipped safely." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,12" TextWrapping="Wrap"/>
+                                        <ListView Name="TlsMatrixList" MinHeight="260">
+                                            <ListView.View>
+                                                <GridView>
+                                                    <GridViewColumn Header="Category" DisplayMemberBinding="{Binding Category}" Width="170"/>
+                                                    <GridViewColumn Header="Setting" DisplayMemberBinding="{Binding SettingName}" Width="220"/>
+                                                    <GridViewColumn Header="Current" DisplayMemberBinding="{Binding CurrentState}" Width="170"/>
+                                                    <GridViewColumn Header="Recommended" DisplayMemberBinding="{Binding RecommendedState}" Width="160"/>
+                                                    <GridViewColumn Header="Action" DisplayMemberBinding="{Binding ActionText}" Width="220"/>
+                                                </GridView>
+                                            </ListView.View>
+                                        </ListView>
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1*"/>
+                                        <ColumnDefinition Width="1*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Margin="0,0,16,0" Background="#FFF8FB">
+                                        <StackPanel>
+                                            <TextBlock Text="Preview changes" FontSize="18" FontWeight="SemiBold"/>
+                                            <TextBlock Text="These are the exact changes Kobra would apply for the selected profile. Review first, then apply when ready." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,12" TextWrapping="Wrap"/>
+                                            <TextBox Name="TxtTlsPreview" MinHeight="200" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Background="#FFFFFF" BorderBrush="{StaticResource BorderSoftBrush}" VerticalScrollBarVisibility="Auto"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text="Result summary" FontSize="18" FontWeight="SemiBold"/>
+                                            <TextBlock Text="After apply, Kobra summarizes changed, skipped, and already compliant settings together with reboot guidance and backup location." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,12" TextWrapping="Wrap"/>
+                                            <TextBox Name="TxtTlsResultSummary" MinHeight="200" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Background="#FFF8FB" BorderBrush="{StaticResource BorderSoftBrush}" VerticalScrollBarVisibility="Auto" Text="No TLS changes applied yet."/>
+                                        </StackPanel>
+                                    </Border>
                                 </Grid>
                             </StackPanel>
                         </ScrollViewer>
@@ -801,8 +938,8 @@
                     <Grid Name="ViewUtilities" Visibility="Collapsed">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
-                                <TextBlock Text="Tools" Style="{StaticResource PageTitleStyle}"/>
-                                <TextBlock Text="Backup, manifest, and support utilities stay in one place so the main cleanup flow stays focused and clean." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
+                                <TextBlock Text="Support" Style="{StaticResource PageTitleStyle}"/>
+                                <TextBlock Text="Safety backup and troubleshooting tools stay here so the main cleanup flow stays focused and simple." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,18"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="1*"/>
@@ -811,21 +948,46 @@
                                     <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                         <Border Style="{StaticResource CardBorderStyle}">
                                             <StackPanel>
-                                                <TextBlock Text="Maintenance" FontSize="18" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Safety Backup" FontSize="18" FontWeight="SemiBold"/>
                                                 <WrapPanel Margin="0,12,0,0">
-                                                    <Button Name="BtnCreateBackup" Content="Create Backup" Width="150" Style="{StaticResource PrimaryButtonStyle}"/>
-                                                    <Button Name="BtnOpenLogs" Content="Open Logs" Width="130" Style="{StaticResource SecondaryButtonStyle}"/>
-                                                    <Button Name="BtnOpenManifests" Content="Open Manifests" Width="150" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
+                                                    <Button Name="BtnCreateBackup" Content="Create Safety Backup" Width="180" Style="{StaticResource PrimaryButtonStyle}"/>
                                                 </WrapPanel>
-                                                <Button Name="BtnToggleLog" Content="Show advanced log" Width="170" Style="{StaticResource GhostButtonStyle}" Margin="0,12,0,0"/>
+                                                <TextBlock Text="Backs up DNS, TLS, and network-related settings before deeper system changes." Style="{StaticResource PageSubTitleStyle}" Margin="0,12,0,0"/>
+                                                <TextBlock Text="Saved in the Backups folder inside Kobra." Style="{StaticResource PageSubTitleStyle}" Margin="0,6,0,0"/>
+                                                <CheckBox Name="ChkDebugLogging" Content="Enable support logging" Margin="0,14,0,0"/>
+                                                <TextBlock Name="TxtDebugLogHint" Text="Support logging is off. Turn it on only if you need troubleshooting help." Style="{StaticResource PageSubTitleStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                <StackPanel Name="SupportToolsPanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                                    <TextBlock Text="Support tools" FontSize="16" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="These options only appear while support logging is enabled for the current session." Style="{StaticResource PageSubTitleStyle}" Margin="0,6,0,0"/>
+                                                    <WrapPanel Margin="0,12,0,0">
+                                                        <Button Name="BtnOpenSupportLog" Content="Open Support Log" Width="150" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                        <Button Name="BtnOpenLogs" Content="Open Support Folder" Width="160" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
+                                                    </WrapPanel>
+                                                    <Button Name="BtnToggleLog" Content="Show support log" Width="170" Style="{StaticResource GhostButtonStyle}" Margin="0,12,0,0"/>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1">
                                         <Border Style="{StaticResource CardBorderStyle}" Background="#FFF8FB">
                                             <StackPanel>
-                                                <TextBlock Text="Why it is separate" FontSize="18" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Normal users should see the clean app first. Logs and manifests are still here, but they stay out of the way unless you need them." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                                <TextBlock Text="Restore" FontSize="18" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Restore only the settings Kobra changes, using a previous safety backup." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                                <WrapPanel Margin="0,12,0,0">
+                                                    <Button Name="BtnSupportRestoreDns" Content="Restore DNS" Width="140" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                    <Button Name="BtnSupportRestoreTls" Content="Restore TLS" Width="140" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
+                                                </WrapPanel>
+                                                <TextBlock Text="TLS restores the backed-up SCHANNEL and .NET TLS settings. DNS restores the last saved adapter DNS values from your latest safety backup." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource CardBorderStyle}" Background="#FFF8FB">
+                                            <StackPanel>
+                                                <TextBlock Text="Windows Recovery" FontSize="18" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Use Windows recovery options for broader rollback outside Kobra's own setting restores." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
+                                                <WrapPanel Margin="0,12,0,0">
+                                                    <Button Name="BtnSupportCreateRestorePoint" Content="Create Windows Restore Point" Width="220" Style="{StaticResource SecondaryButtonStyle}"/>
+                                                    <Button Name="BtnSupportOpenSystemRestore" Content="Open System Restore" Width="180" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>
+                                                </WrapPanel>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -846,6 +1008,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Margin="0,0,16,0">
                                         <StackPanel>
+                                            <Image Name="AboutLogo" Width="260" Height="260" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,0,0,16" RenderOptions.BitmapScalingMode="HighQuality"/>
                                             <TextBlock Text="Project direction" FontSize="18" FontWeight="SemiBold"/>
                                             <TextBlock Text="- Cleaner section-based app shell&#x0a;- Bigger focus on scan, results, options, and actions&#x0a;- Less developer clutter in the main interface&#x0a;- Room to add more features after the UI feels great" Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,0"/>
                                         </StackPanel>
@@ -855,6 +1018,7 @@
                                             <TextBlock Text="Support and info" FontSize="18" FontWeight="SemiBold"/>
                                             <TextBlock Text="Free utility. Practical tools. Cleaner direction. Ongoing development." Style="{StaticResource PageSubTitleStyle}" Margin="0,10,0,18"/>
                                             <WrapPanel>
+                                                <Button Name="BtnShare" Content="Share" Width="120" Style="{StaticResource SecondaryButtonStyle}"/>
                                                 <Button Name="BtnDonate" Content="Donate" Width="120" Style="{StaticResource PrimaryButtonStyle}"/>
                                                 <Button Name="BtnDisclaimer" Content="Disclaimer" Width="120" Style="{StaticResource SecondaryButtonStyle}"/>
                                                 <Button Name="BtnAboutMe" Content="About Me" Width="120" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,0"/>

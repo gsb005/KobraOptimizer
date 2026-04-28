@@ -62,6 +62,19 @@ function Set-KobraRegDword {
     New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType DWord -Force | Out-Null
 }
 
+function Remove-KobraRegValue {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    Remove-ItemProperty -LiteralPath $Path -Name $Name -ErrorAction SilentlyContinue
+}
+
 function Convert-KobraRegistryPathToNative {
     param([Parameter(Mandatory)][string]$RegistryPath)
 
@@ -119,6 +132,56 @@ function Get-KobraDnsBackupSnapshot {
     return $results
 }
 
+function Invoke-KobraDnsRestore {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BackupPath,
+        [scriptblock]$Log
+    )
+
+    $snapshotPath = Join-Path $BackupPath 'dns_snapshot.json'
+    if (-not (Test-Path -LiteralPath $snapshotPath)) {
+        throw "DNS snapshot not found: $snapshotPath"
+    }
+
+    $raw = Get-Content -LiteralPath $snapshotPath -Raw -ErrorAction Stop
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        throw 'DNS snapshot file is empty.'
+    }
+
+    $records = @((ConvertFrom-Json -InputObject $raw))
+    Write-KobraModuleLog -Log $Log -Message ("Restoring DNS settings from: {0}" -f $BackupPath)
+
+    $restored = 0
+    foreach ($record in $records) {
+        if ($null -eq $record -or [string]::IsNullOrWhiteSpace(($record.InterfaceAlias -as [string]))) {
+            continue
+        }
+
+        $servers = @()
+        if ($null -ne $record.ServerAddresses) {
+            $servers = @($record.ServerAddresses)
+        }
+
+        if ((Get-KobraSafeCount $servers) -eq 0) {
+            Set-DnsClientServerAddress -InterfaceAlias $record.InterfaceAlias -ResetServerAddresses -ErrorAction Stop
+            Write-KobraModuleLog -Log $Log -Message ("  DNS reset to automatic for adapter: {0}" -f $record.InterfaceAlias)
+        }
+        else {
+            Set-DnsClientServerAddress -InterfaceAlias $record.InterfaceAlias -ServerAddresses $servers -ErrorAction Stop
+            Write-KobraModuleLog -Log $Log -Message ("  DNS restored for adapter {0}: {1}" -f $record.InterfaceAlias, ($servers -join ', '))
+        }
+
+        $restored++
+    }
+
+    Write-KobraModuleLog -Log $Log -Message ("DNS restore complete. Adapters updated: {0}" -f $restored)
+    return [pscustomobject]@{
+        BackupPath     = $BackupPath
+        RestoredCount  = $restored
+    }
+}
+
 function Invoke-KobraSettingsBackup {
     [CmdletBinding()]
     param(
@@ -171,7 +234,7 @@ foreach ($record in $records) {
         Set-DnsClientServerAddress -InterfaceAlias $record.InterfaceAlias -ResetServerAddresses -ErrorAction Continue
     }
     else {
-        Set-DnsClientServerAddress -InterfaceAlias $record.InterfaceAlias -ServerAddresses $servers -AddressFamily $record.AddressFamily -ErrorAction Continue
+        Set-DnsClientServerAddress -InterfaceAlias $record.InterfaceAlias -ServerAddresses $servers -ErrorAction Continue
     }
 }
 
@@ -290,6 +353,184 @@ function Invoke-KobraTlsHardening {
     Write-KobraModuleLog -Log $Log -Message 'TLS hardening complete.'
 }
 
+function Invoke-KobraTlsBackup {
+    [CmdletBinding()]
+    param(
+        [string]$BackupRoot,
+        [scriptblock]$Log
+    )
+
+    if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
+        $BackupRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'Backups'
+    }
+
+    $null = New-Item -Path $BackupRoot -ItemType Directory -Force -ErrorAction SilentlyContinue
+    $backupDir = Join-Path $BackupRoot ("KobraTlsBackup_{0}" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
+    $null = New-Item -Path $backupDir -ItemType Directory -Force -ErrorAction Stop
+
+    Write-KobraModuleLog -Log $Log -Message ("Creating TLS backup bundle: {0}" -f $backupDir)
+
+    $registryExports = @(
+        @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols'; File = 'schannel_protocols.reg' },
+        @{ Path = 'HKLM:\SOFTWARE\Microsoft\.NETFramework\v4.0.30319'; File = 'dotnet_v4_x64.reg' },
+        @{ Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\.NETFramework\v4.0.30319'; File = 'dotnet_v4_wow64.reg' }
+    )
+
+    foreach ($export in $registryExports) {
+        Export-KobraRegistryBranch -RegistryPath $export.Path -DestinationPath (Join-Path $backupDir $export.File) -Log $Log
+    }
+
+    $restoreScriptPath = Join-Path $backupDir 'restore_tls_settings.ps1'
+    $restoreScript = @'
+#requires -Version 5.1
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$files = @(
+    'schannel_protocols.reg',
+    'dotnet_v4_x64.reg',
+    'dotnet_v4_wow64.reg'
+)
+
+foreach ($file in $files) {
+    $path = Join-Path $PSScriptRoot $file
+    if (-not (Test-Path -LiteralPath $path)) {
+        continue
+    }
+
+    & reg.exe import $path | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not import backup file: $path"
+    }
+}
+
+Write-Host 'TLS registry restore completed. A restart may be required.'
+'@
+    Set-Content -Path $restoreScriptPath -Value $restoreScript -Encoding UTF8
+
+    $manifestPath = Join-Path $backupDir 'tls_manifest.json'
+    [pscustomobject]@{
+        Product             = 'KobraOptimizer'
+        Type                = 'TLSBackup'
+        CreatedAt           = (Get-Date).ToString('s')
+        BackupPath          = $backupDir
+        RegistryExportFiles = @($registryExports.File)
+        RestoreScript       = 'restore_tls_settings.ps1'
+        Notes               = @(
+            'Run restore_tls_settings.ps1 as administrator to restore the latest TLS backup.',
+            'A restart may be required after restoring TLS registry settings.'
+        )
+    } | ConvertTo-Json -Depth 4 | Set-Content -Path $manifestPath -Encoding UTF8
+
+    Write-KobraModuleLog -Log $Log -Message 'TLS backup bundle complete.'
+
+    return [pscustomobject]@{
+        BackupPath  = $backupDir
+        ManifestPath = $manifestPath
+    }
+}
+
+function Invoke-KobraTlsRestore {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BackupPath,
+        [scriptblock]$Log
+    )
+
+    if (-not (Test-Path -LiteralPath $BackupPath)) {
+        throw "TLS backup folder not found: $BackupPath"
+    }
+
+    Write-KobraModuleLog -Log $Log -Message ("Restoring TLS backup: {0}" -f $BackupPath)
+
+    $files = @(
+        'schannel_protocols.reg',
+        'dotnet_v4_x64.reg',
+        'dotnet_v4_wow64.reg'
+    )
+
+    $importedCount = 0
+    foreach ($file in $files) {
+        $path = Join-Path $BackupPath $file
+        if (-not (Test-Path -LiteralPath $path)) {
+            Write-KobraModuleLog -Log $Log -Message ("  Backup file missing, skipped: {0}" -f $file)
+            continue
+        }
+
+        $output = & reg.exe import $path 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $detail = ($output | Out-String).Trim()
+            throw "Could not restore TLS backup file $file`n$detail"
+        }
+
+        $importedCount++
+        Write-KobraModuleLog -Log $Log -Message ("  Backup imported: {0}" -f $file)
+    }
+
+    Write-KobraModuleLog -Log $Log -Message ("TLS backup restore complete. Imported files: {0}" -f $importedCount)
+
+    return [pscustomobject]@{
+        BackupPath     = $BackupPath
+        ImportedCount  = $importedCount
+        RebootRequired = $true
+    }
+}
+
+function Invoke-KobraTlsChangeSet {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object[]]$Changes,
+        [scriptblock]$Log
+    )
+
+    $changed = 0
+    $skipped = 0
+    $already = 0
+
+    foreach ($change in @($Changes)) {
+        if ($null -eq $change) {
+            continue
+        }
+
+        $setting = $change.SettingName -as [string]
+        $action = $change.ActionType -as [string]
+
+        if (-not [bool]$change.Supported) {
+            $skipped++
+            Write-KobraModuleLog -Log $Log -Message ("  Skipped unsupported setting: {0}" -f $setting)
+            continue
+        }
+
+        switch ($action) {
+            'none' {
+                $already++
+                Write-KobraModuleLog -Log $Log -Message ("  Already compliant: {0}" -f $setting)
+            }
+            'set' {
+                Write-KobraModuleLog -Log $Log -Message ("  Writing setting: {0} -> {1}" -f $setting, $change.Value)
+                Set-KobraRegDword -Path ($change.Path -as [string]) -Name ($change.ValueName -as [string]) -Value ([uint32]$change.Value)
+                $changed++
+            }
+            'remove' {
+                Write-KobraModuleLog -Log $Log -Message ("  Removing setting override: {0}" -f $setting)
+                Remove-KobraRegValue -Path ($change.Path -as [string]) -Name ($change.ValueName -as [string])
+                $changed++
+            }
+            default {
+                $skipped++
+                Write-KobraModuleLog -Log $Log -Message ("  Skipped unknown action for {0}: {1}" -f $setting, $action)
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        ChangedCount      = $changed
+        SkippedCount      = $skipped
+        AlreadyCompliant  = $already
+        RebootRequired    = ($changed -gt 0)
+    }
+}
+
 function Invoke-KobraTcpStrike {
     [CmdletBinding()]
     param([scriptblock]$Log)
@@ -301,7 +542,7 @@ function Invoke-KobraTcpStrike {
     Invoke-KobraNative -FilePath 'netsh.exe' -ArgumentList @('int','tcp','set','supplemental','template=internet','congestionprovider=cubic') -Log $Log
 
     $multimediaPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile'
-    Set-KobraRegDword -Path $multimediaPath -Name 'NetworkThrottlingIndex' -Value 0xffffffff
+    Set-KobraRegDword -Path $multimediaPath -Name 'NetworkThrottlingIndex' -Value ([uint32]::MaxValue)
     Set-KobraRegDword -Path $multimediaPath -Name 'SystemResponsiveness' -Value 0
 
     Write-KobraModuleLog -Log $Log -Message 'Registry network profile tuned.'
@@ -416,7 +657,7 @@ function Invoke-KobraDnsProfile {
         }
 
         try {
-            Set-DnsClientServerAddress -InterfaceAlias $alias -ServerAddresses $profile.IPv4 -AddressFamily IPv4 -ErrorAction Stop
+            Set-DnsClientServerAddress -InterfaceAlias $alias -ServerAddresses $profile.IPv4 -ErrorAction Stop
             Write-KobraModuleLog -Log $Log -Message ("    IPv4 DNS set: {0}" -f ($profile.IPv4 -join ', '))
         }
         catch {
@@ -424,7 +665,7 @@ function Invoke-KobraDnsProfile {
         }
 
         try {
-            Set-DnsClientServerAddress -InterfaceAlias $alias -ServerAddresses $profile.IPv6 -AddressFamily IPv6 -ErrorAction Stop
+            Set-DnsClientServerAddress -InterfaceAlias $alias -ServerAddresses $profile.IPv6 -ErrorAction Stop
             Write-KobraModuleLog -Log $Log -Message ("    IPv6 DNS set: {0}" -f ($profile.IPv6 -join ', '))
         }
         catch {
@@ -435,4 +676,4 @@ function Invoke-KobraDnsProfile {
     Write-KobraModuleLog -Log $Log -Message 'DNS profile operation complete.'
 }
 
-Export-ModuleMember -Function Invoke-KobraSettingsBackup, Invoke-KobraGuard, Invoke-KobraTlsHardening, Invoke-KobraTcpStrike, Invoke-KobraDnsFlush, Get-KobraDnsPlan, Invoke-KobraDnsProfile
+Export-ModuleMember -Function Invoke-KobraSettingsBackup, Invoke-KobraGuard, Invoke-KobraTlsHardening, Invoke-KobraTlsBackup, Invoke-KobraTlsRestore, Invoke-KobraTlsChangeSet, Invoke-KobraDnsFlush, Get-KobraDnsPlan, Invoke-KobraDnsProfile, Invoke-KobraDnsRestore, Invoke-KobraTcpStrike

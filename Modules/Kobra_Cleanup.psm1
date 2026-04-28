@@ -96,6 +96,7 @@ function New-KobraCleanupResult {
         [int]$SkippedCount = 0,
         [int]$FailedCount = 0,
         [int]$LockedCount = 0,
+        [int]$ProtectedCount = 0,
         [int64]$FoundBytes = 0,
         [int64]$RemovedBytes = 0,
         [string]$Reason = ''
@@ -110,6 +111,7 @@ function New-KobraCleanupResult {
         SkippedCount   = $SkippedCount
         FailedCount    = $FailedCount
         LockedCount    = $LockedCount
+        ProtectedCount = $ProtectedCount
         FoundBytes     = $FoundBytes
         RemovedBytes   = $RemovedBytes
         Reason         = $Reason
@@ -266,7 +268,8 @@ function Clear-KobraDirectoryContents {
         [string]$Path,
         [string[]]$Include,
         [scriptblock]$Log,
-        [string]$Label
+        [string]$Label,
+        [switch]$TreatPermissionAsSkipped
     )
 
     if (-not (Test-Path -LiteralPath $Path)) {
@@ -280,6 +283,7 @@ function Clear-KobraDirectoryContents {
     $skipped = 0
     $failed = 0
     $locked = 0
+    $protectedSkipped = 0
     [int64]$foundBytes = 0
     [int64]$removedBytes = 0
 
@@ -327,8 +331,15 @@ function Clear-KobraDirectoryContents {
                     Write-KobraModuleLog -Log $Log -Message ("  {0}: skipped locked item {1}" -f $Label, $item.FullName)
                 }
                 'permission' {
-                    $failed++
-                    Write-KobraModuleLog -Log $Log -Message ("  {0}: failed item {1} (permission issue)" -f $Label, $item.FullName)
+                    if ($TreatPermissionAsSkipped) {
+                        $skipped++
+                        $protectedSkipped++
+                        Write-KobraModuleLog -Log $Log -Message ("  {0}: skipped protected system item {1}" -f $Label, $item.FullName)
+                    }
+                    else {
+                        $failed++
+                        Write-KobraModuleLog -Log $Log -Message ("  {0}: failed item {1} (permission issue)" -f $Label, $item.FullName)
+                    }
                 }
                 default {
                     $failed++
@@ -342,14 +353,20 @@ function Clear-KobraDirectoryContents {
 
     Write-KobraModuleLog -Log $Log -Message ("  {0}: found={1}; attempted={2}; removed={3}; skipped={4}; failed={5}; locked={6}" -f $Label, $found, $attempted, $removed, $skipped, $failed, $locked)
 
-    return (New-KobraCleanupResult -Category $Label -FoundCount $found -AttemptedCount $attempted -RemovedCount $removed -SkippedCount $skipped -FailedCount $failed -LockedCount $locked -FoundBytes $foundBytes -RemovedBytes $removedBytes)
+    $reason = ''
+    if ($protectedSkipped -gt 0) {
+        $reason = ('Windows kept {0:N0} protected system files. They were safely skipped.' -f $protectedSkipped)
+    }
+
+    return (New-KobraCleanupResult -Category $Label -FoundCount $found -AttemptedCount $attempted -RemovedCount $removed -SkippedCount $skipped -FailedCount $failed -LockedCount $locked -ProtectedCount $protectedSkipped -FoundBytes $foundBytes -RemovedBytes $removedBytes -Reason $reason)
 }
 
 function Clear-KobraWindowsUpdateCache {
     param([scriptblock]$Log)
 
-    $services = @('wuauserv','bits','dosvc')
+    $services = @('wuauserv','bits','dosvc','UsoSvc')
     $stopped  = @()
+    $downloadPath = "$env:windir\SoftwareDistribution\Download"
 
     foreach ($serviceName in $services) {
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -365,7 +382,55 @@ function Clear-KobraWindowsUpdateCache {
         }
     }
 
-    $result = Clear-KobraDirectoryContents -Path "$env:windir\SoftwareDistribution\Download" -Log $Log -Label 'Windows Update Cache'
+    if (Test-Path -LiteralPath $downloadPath) {
+        try {
+            Write-KobraModuleLog -Log $Log -Message '  Preparing Windows Update cache permissions for cleanup.'
+            & takeown.exe /F $downloadPath /A /R /D Y 2>$null | Out-Null
+        }
+        catch {
+            Write-KobraModuleLog -Log $Log -Message '  Could not take ownership of all Windows Update cache items.'
+        }
+
+        try {
+            & icacls.exe $downloadPath '/grant:r' 'Administrators:(F)' '/T' '/C' '/Q' 2>$null | Out-Null
+        }
+        catch {
+            Write-KobraModuleLog -Log $Log -Message '  Could not grant Administrators full control on all Windows Update cache items.'
+        }
+
+        try {
+            & attrib.exe -R "$downloadPath\*" /S /D 2>$null | Out-Null
+        }
+        catch {
+            Write-KobraModuleLog -Log $Log -Message '  Could not clear read-only flags on all Windows Update cache items.'
+        }
+    }
+
+    $result = Clear-KobraDirectoryContents -Path $downloadPath -Log $Log -Label 'Windows Update Cache' -TreatPermissionAsSkipped
+
+    if ($null -ne $result -and $result.FailedCount -gt 0) {
+        $windowsReservedCount = [int]$result.FailedCount
+        $reasonParts = New-Object System.Collections.Generic.List[string]
+        if (-not [string]::IsNullOrWhiteSpace(($result.Reason -as [string]))) {
+            $reasonParts.Add(($result.Reason -as [string]))
+        }
+        $reasonParts.Add(('Windows kept {0:N0} update cache items reserved, protected, or still in use by servicing. They were left in place safely.' -f $windowsReservedCount))
+
+        $result = New-KobraCleanupResult `
+            -Category $result.Category `
+            -FoundCount $result.FoundCount `
+            -AttemptedCount $result.AttemptedCount `
+            -RemovedCount $result.RemovedCount `
+            -SkippedCount ($result.SkippedCount + $windowsReservedCount) `
+            -FailedCount 0 `
+            -LockedCount $result.LockedCount `
+            -ProtectedCount ($result.ProtectedCount + $windowsReservedCount) `
+            -FoundBytes $result.FoundBytes `
+            -RemovedBytes $result.RemovedBytes `
+            -Reason ($reasonParts -join ' ')
+
+        Write-KobraModuleLog -Log $Log -Message ("  Windows Update Cache: reclassified {0:N0} servicing-managed items as safely reserved by Windows." -f $windowsReservedCount)
+    }
 
     foreach ($serviceName in $stopped) {
         try {

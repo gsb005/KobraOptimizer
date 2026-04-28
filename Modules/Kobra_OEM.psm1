@@ -68,7 +68,7 @@ function Invoke-KobraHPDebloat {
         $tasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
             $name = $_.TaskName
             $path = $_.TaskPath
-            ($taskPatterns | Where-Object { $name -like $_ -or $path -like $_ }).Count -gt 0
+            @($taskPatterns | Where-Object { $name -like $_ -or $path -like $_ }).Count -gt 0
         }
 
         foreach ($task in $tasks) {

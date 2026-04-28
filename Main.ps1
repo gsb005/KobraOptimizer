@@ -1,6 +1,6 @@
 #requires -Version 5.1
 # ==============================================================================
-# KobraOptimizer v1.8.0 - Main Launcher
+# KobraOptimizer v1.8.9 - Main Launcher
 # Next-gen shell pass: section-based product UI built on the existing PowerShell backend
 # ==============================================================================
 
@@ -32,7 +32,8 @@ $script:DonationUrl  = 'https://ko-fi.com/kobraoptimizer'
 $script:ProjectRoot  = Get-KobraAppRoot
 $script:ModuleRoot   = Join-Path $script:ProjectRoot 'Modules'
 $script:XamlPath     = Join-Path $script:ProjectRoot 'Kobra_UI.xaml'
-$script:LogoPath     = Join-Path $script:ProjectRoot 'Assets\logo.png'
+$script:LogoPath     = Join-Path $script:ProjectRoot 'Assets\logo3.png'
+$script:AboutLogoPath = Join-Path $script:ProjectRoot 'Assets\logo.png'
 $script:LogRoot      = Join-Path $script:ProjectRoot 'Logs'
 $script:BackupRoot   = Join-Path $script:ProjectRoot 'Backups'
 $script:TempRoot     = Join-Path 'C:\Temp' 'KobraOptimizer'
@@ -42,9 +43,10 @@ $null = New-Item -Path $script:BackupRoot -ItemType Directory -Force -ErrorActio
 $null = New-Item -Path $script:TempRoot -ItemType Directory -Force -ErrorAction SilentlyContinue
 $null = New-Item -Path $script:ManifestRoot -ItemType Directory -Force -ErrorAction SilentlyContinue
 $script:LogFile = Join-Path $script:LogRoot ("Kobra_{0}.log" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
-$script:DebugRoot = 'C:\Temp'
-$null = New-Item -Path $script:DebugRoot -ItemType Directory -Force -ErrorAction SilentlyContinue
-$script:DebugLogFile = Join-Path $script:DebugRoot 'Kobra_Debug.log'
+$script:DebugRoot = $script:LogRoot
+$script:DebugSessionStamp = Get-Date -Format 'yyyyMMdd-HHmm'
+$script:DebugEnabled = $false
+$script:DebugLogFile = $null
 $script:LastRegistryBackup = $null
 
 function Test-KobraAdministrator {
@@ -104,11 +106,53 @@ function Write-KobraDebug {
         [switch]$NoTimestamp
     )
 
+    if (-not $script:DebugEnabled -or [string]::IsNullOrWhiteSpace($script:DebugLogFile)) {
+        return
+    }
+
     try {
         $line = if ($NoTimestamp) { $Message } else { "[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'), $Message }
         Add-Content -Path $script:DebugLogFile -Value $line -Encoding UTF8
     }
     catch {}
+}
+
+function Initialize-KobraDebugLog {
+    if ([string]::IsNullOrWhiteSpace($script:DebugLogFile)) {
+        $script:DebugLogFile = Join-Path $script:DebugRoot ("K_Debug-{0}.log" -f $script:DebugSessionStamp)
+    }
+
+    $null = New-Item -Path $script:DebugRoot -ItemType Directory -Force -ErrorAction SilentlyContinue
+
+    if (-not (Test-Path -LiteralPath $script:DebugLogFile)) {
+        $null = New-Item -Path $script:DebugLogFile -ItemType File -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Set-KobraDebugLogging {
+    param([bool]$Enabled)
+
+    if ($Enabled) {
+        if (-not $script:DebugEnabled) {
+            $script:DebugEnabled = $true
+            Initialize-KobraDebugLog
+            Write-KobraDebug -Message '=== Kobra Debug Session Start ==='
+            Write-KobraDebug -Message ('Version=' + $script:AppVersion)
+            Write-KobraDebug -Message ('ProjectRoot=' + $script:ProjectRoot)
+            Write-KobraDebug -Message ('ModuleRoot=' + $script:ModuleRoot)
+            Write-KobraDebug -Message ('XamlPath=' + $script:XamlPath)
+            Write-KobraDebug -Message ('LogFile=' + $script:LogFile)
+            Write-KobraDebug -Message ('DebugLog=' + $script:DebugLogFile)
+            Write-KobraDebug -Message ('ManifestRoot=' + $script:ManifestRoot)
+        }
+        return
+    }
+
+    if ($script:DebugEnabled) {
+        Write-KobraDebug -Message '=== Kobra Debug Session End ==='
+    }
+
+    $script:DebugEnabled = $false
 }
 
 function Get-KobraDebugSelectionState {
@@ -145,13 +189,6 @@ function Get-KobraDebugSelectionState {
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName PresentationCore
-
-Write-KobraDebug -Message ('=== Kobra Debug Session Start ===')
-Write-KobraDebug -Message ('ProjectRoot=' + $script:ProjectRoot)
-Write-KobraDebug -Message ('ModuleRoot=' + $script:ModuleRoot)
-Write-KobraDebug -Message ('XamlPath=' + $script:XamlPath)
-Write-KobraDebug -Message ('LogFile=' + $script:LogFile)
-Write-KobraDebug -Message ('DebugLog=' + $script:DebugLogFile)
 
 if (-not (Test-KobraAdministrator)) {
     try {
@@ -207,22 +244,26 @@ catch {
 }
 
 $controlNames = @(
-    'BtnAnalyze','BtnRunSelected','BtnQuickShed','BtnCreateBackup','BtnOpenLogs','BtnOpenManifests',
-    'StatusTextBox','ProgBar','BigProgBar','TxtBigStatus','TxtBigDetail','BtnCancelScan','KobraLogo','ResultsList','TxtResultsHeadline','TxtResultsSubHeadline','TxtResultsMode',
+    'BtnAnalyze','BtnRunSelected','BtnCreateBackup','BtnOpenLogs','BtnOpenSupportLog',
+    'StatusTextBox','ProgBar','BigProgBar','TxtBigStatus','TxtBigDetail','BtnCancelScan','KobraLogo','AboutLogo','ResultsList','TxtResultsHeadline','TxtResultsSubHeadline','TxtResultsMode',
     'ChkRestorePoint','ChkRegistry','ChkNetwork','ChkDnsFlush','ChkDnsProfile','ChkHPDebloat',
 'ChkUserTemp','ChkSystemTemp','ChkWinUpdate','ChkThumbCache','ChkShaderCache','ChkRecycleBin','TxtRegistryBackupStatus',
 'ChkChrome','ChkEdge','ChkFirefox','ChkOpera','ChkBrave','ChkVivaldi','ChkBrowserCookies','ChkBrowserHistory','ChkBrowserBackupBundle','ChkRegistryClean','ChkRegistryBackup','ChkSystemRestorePoint','CmbDnsProvider',
-    'BtnSystemScan','BtnSystemClean','BtnBrowserScan','BtnBrowserClean','BtnRegistryScan','BtnRegistryBackup','BtnRegistryClean','BtnCancelScan','BtnResultsRescan','BtnResultsBackCustom','BtnResultsOpenDebugLog',
+    'BtnSystemScan','BtnSystemClean','BtnBrowserScan','BtnBrowserClean','BtnRegistryScan','BtnRegistryBackup','BtnRegistryClean','BtnCancelScan','BtnResultsRescan','BtnResultsBackCustom',
     'StartupList','BtnStartupRefresh','BtnStartupDisable','BtnStartupEnable','ChkStartupShowMicrosoft',
     'BtnWindowsUpdate','BtnWindowsUpdateSettings','BtnWindowsStorage','BtnWindowsApps',
     'BtnWindowsStartupSettings','BtnWindowsGameMode','BtnWindowsGraphics','BtnWindowsPower',
-    'BtnExit','BtnDonate','BtnDonateSidebar','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
-    'BtnNavDashboard','BtnNavAnalyze','BtnNavCustomClean','BtnNavResults','BtnNavTools','BtnNavStartup','BtnNavUtilities','BtnNavAbout',
-    'ViewDashboard','ViewAnalyze','ViewOperationProgress','ViewCustomClean','ViewResults','ViewTools','ViewStartup','ViewUtilities','ViewAbout',
+    'BtnExit','BtnShare','BtnDonate','BtnDonateSidebar','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
+    'BtnNavDashboard','BtnNavAnalyze','BtnNavCustomClean','BtnNavResults','BtnNavTools','BtnNavTls','BtnNavStartup','BtnNavUtilities','BtnNavAbout',
+    'ViewDashboard','ViewAnalyze','ViewOperationProgress','ViewCustomClean','ViewResults','ViewTools','ViewTls','ViewStartup','ViewUtilities','ViewAbout',
     'BtnDashboardQuickScan','BtnDashboardCustomClean','BtnDashboardPerformance','BtnDashboardStartup',
-    'BtnQuickScanCustomize','BtnQuickScanBackup','BtnCustomAnalyze','BtnPerformanceApply','BtnPerformanceBackup',
+    'BtnQuickScanCustomize','BtnQuickScanBackup','BtnHealthReviewResults','BtnCustomAnalyze','BtnPerformanceApply','BtnPerformanceBackup','BtnTlsScan','BtnTlsRecommend','BtnTlsPreview','BtnTlsBackup','BtnTlsBackupLocation','BtnTlsApply','BtnTlsRestore',
+    'BtnSupportRestoreDns','BtnSupportRestoreTls','BtnSupportCreateRestorePoint','BtnSupportOpenSystemRestore',
     'TxtDashLastScan','TxtDashReclaimable','TxtDashRecords','TxtDashCategories','TxtDashSelections','TxtDashSafety','TxtRecentActivity',
-    'TxtAnalyzeStage','TxtAnalyzeSubStage','TxtSelectedCategoryCount','TxtSelectedRecordCount','TxtSelectedBytes','TxtSelectedWarnings'
+    'TxtAnalyzeStage','TxtAnalyzeSubStage','TxtHealthCleanup','TxtHealthTls','TxtHealthDns','TxtHealthStartup','TxtHealthRegistry','TxtHealthSafety','TxtHealthTips','TxtSelectedCategoryCount','TxtSelectedRecordCount','TxtSelectedBytes','TxtSelectedWarnings',
+    'TxtTlsSummary','TxtTlsRecommendation','TxtTlsProtocols','CmbTlsPreset',
+    'TxtTlsStatusBadge','TxtTlsLegacyState','TxtTlsModernState','TxtTlsDotNetState','TxtTlsProfileDescription','TxtTlsBackupStatus','TxtTlsResultSummary','TxtTlsPreview','TlsMatrixList','ChkTlsRestorePoint',
+    'ChkDebugLogging','TxtDebugLogHint','SupportToolsPanel'
 )
 
 foreach ($name in $controlNames) {
@@ -242,6 +283,12 @@ $script:ResultsMode = 'ScanResults'
 $script:LastActionStatus = 'No scan yet'
 $script:OperationOriginView = 'Analyze'
 $script:SectionScanReady = @{ System = $false; Browser = $false; Registry = $false }
+$script:LastHealthSnapshot = $null
+$script:TlsScanState = $null
+$script:TlsPreviewState = $null
+$script:TlsApplySummary = $null
+$script:TlsScanCompleted = $false
+$script:LastTlsBackup = $null
 Write-KobraDebug -Message ('Initial selections: ' + (Get-KobraDebugSelectionState))
 
 function Invoke-KobraUiRefresh {
@@ -274,6 +321,25 @@ function Write-KobraUiLog {
     Write-KobraDebug -Message $line -NoTimestamp
     Update-KobraRecentActivity
     Invoke-KobraUiRefresh
+}
+
+function Update-KobraDebugLoggingHint {
+    if ($null -eq $script:TxtDebugLogHint) {
+        return
+    }
+
+    if ($script:DebugEnabled -and -not [string]::IsNullOrWhiteSpace($script:DebugLogFile)) {
+        $script:TxtDebugLogHint.Text = 'Support logging is active. Use the support tools below only if you are troubleshooting an issue.'
+        if ($null -ne $script:SupportToolsPanel) {
+            $script:SupportToolsPanel.Visibility = 'Visible'
+        }
+    }
+    else {
+        $script:TxtDebugLogHint.Text = 'Support logging is off. Turn it on only if you need troubleshooting help.'
+        if ($null -ne $script:SupportToolsPanel) {
+            $script:SupportToolsPanel.Visibility = 'Collapsed'
+        }
+    }
 }
 
 function Set-KobraProgress {
@@ -361,12 +427,12 @@ function Set-KobraButtonsEnabled {
     param([bool]$Enabled)
 
     $buttonNames = @(
-        'BtnAnalyze','BtnRunSelected','BtnQuickShed','BtnCreateBackup','BtnOpenLogs','BtnOpenManifests','BtnResultsRescan','BtnResultsBackCustom','BtnResultsOpenDebugLog',
+        'BtnAnalyze','BtnRunSelected','BtnCreateBackup','BtnOpenLogs','BtnOpenSupportLog','BtnResultsRescan','BtnResultsBackCustom',
         'BtnStartupRefresh','BtnStartupDisable','BtnStartupEnable',
         'BtnExit','BtnDonate','BtnDonateSidebar','BtnDisclaimer','BtnAboutMe','BtnToggleLog',
-        'BtnNavDashboard','BtnNavAnalyze','BtnNavCustomClean','BtnNavResults','BtnNavTools','BtnNavStartup','BtnNavUtilities','BtnNavAbout',
+        'BtnNavDashboard','BtnNavAnalyze','BtnNavCustomClean','BtnNavResults','BtnNavTools','BtnNavTls','BtnNavStartup','BtnNavUtilities','BtnNavAbout',
         'BtnDashboardQuickScan','BtnDashboardCustomClean','BtnDashboardPerformance','BtnDashboardStartup',
-        'BtnQuickScanCustomize','BtnQuickScanBackup','BtnCustomAnalyze','BtnPerformanceApply','BtnPerformanceBackup',
+        'BtnQuickScanCustomize','BtnQuickScanBackup','BtnHealthReviewResults','BtnCustomAnalyze','BtnPerformanceApply','BtnPerformanceBackup','BtnTlsScan','BtnTlsRecommend','BtnTlsPreview','BtnTlsBackup','BtnTlsBackupLocation','BtnTlsApply','BtnTlsRestore','BtnSupportRestoreDns','BtnSupportRestoreTls','BtnSupportCreateRestorePoint','BtnSupportOpenSystemRestore',
         'BtnSystemScan','BtnSystemClean','BtnBrowserScan','BtnBrowserClean','BtnRegistryScan','BtnRegistryBackup','BtnRegistryClean','BtnCancelScan'
     )
 
@@ -787,7 +853,7 @@ function Get-KobraRegistryBackupStatus {
     }
 
     if ($script:LastRegistryBackup.ExportCount -gt 0) {
-        return 'Backup completed'
+        return 'Safety backup completed'
     }
 
     return 'No backup yet'
@@ -1103,6 +1169,7 @@ function Set-KobraQuickScanPreset {
     $script:ChkBrowserCookies.IsChecked = $false
     if ($null -ne $script:ChkBrowserHistory) { $script:ChkBrowserHistory.IsChecked = $true }
     if ($null -ne $script:ChkRegistryBackup) { $script:ChkRegistryBackup.IsChecked = $true }
+if ($null -ne $script:CmbTlsPreset -and $script:CmbTlsPreset.SelectedIndex -lt 0) { $script:CmbTlsPreset.SelectedIndex = 0 }
 
     Update-KobraSelectionSummary
     Update-KobraDashboard
@@ -1116,6 +1183,774 @@ function Get-KobraSelectedDnsProfile {
         default { return 'Cloudflare' }
     }
 }
+
+
+function Get-KobraTlsPreset {
+    if ($null -eq $script:CmbTlsPreset -or $null -eq $script:CmbTlsPreset.SelectedItem) {
+        return 'recommended'
+    }
+
+    $selectedItem = $script:CmbTlsPreset.SelectedItem
+    $content = $selectedItem.Content -as [string]
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        $content = $selectedItem.ToString()
+    }
+
+    if ($content -match '^Compatible') { return 'compatible' }
+    if ($content -match '^Strict') { return 'strict' }
+    return 'recommended'
+}
+
+function Get-KobraTlsPresetDescription {
+    param([string]$Preset)
+
+    switch ($Preset) {
+        'compatible' {
+            return 'Compatibility-first review profile. Legacy protocols stay visible in the recommendations so older apps are easier to evaluate. This profile is preview-only in this build.'
+        }
+        'strict' {
+            return 'Strict hardened preview. This page will show a more aggressive posture, but write support is intentionally disabled until cipher, hash, and key-exchange handling is ready.'
+        }
+        default {
+            return 'Recommended modern baseline. Disable SSL 2.0, SSL 3.0, TLS 1.0, and TLS 1.1. Preserve or re-enable TLS 1.2 and TLS 1.3. Enable .NET strong crypto and system-default TLS flags.'
+        }
+    }
+}
+
+function Get-KobraTlsOsBuild {
+    try {
+        return [int](Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).BuildNumber
+    }
+    catch {
+        return [int][Environment]::OSVersion.Version.Build
+    }
+}
+
+function Test-KobraTlsProtocolSupported {
+    param([Parameter(Mandatory)][string]$Protocol)
+
+    $build = Get-KobraTlsOsBuild
+    switch ($Protocol) {
+        'TLS 1.3' { return ($build -ge 20348) }
+        default { return $true }
+    }
+}
+
+function Get-KobraTlsRegistryValueSafe {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        Write-KobraDebug -Message ("TLS missing key encountered: {0}" -f $Path)
+        return [pscustomobject]@{
+            KeyExists = $false
+            HasValue  = $false
+            Value     = $null
+        }
+    }
+
+    try {
+        $item = Get-ItemProperty -LiteralPath $Path -ErrorAction Stop
+    }
+    catch {
+        Write-KobraDebug -Message ("TLS read failed: {0} [{1}] - {2}" -f $Path, $Name, $_.Exception.Message)
+        return [pscustomobject]@{
+            KeyExists = $true
+            HasValue  = $false
+            Value     = $null
+        }
+    }
+
+    $property = $item.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        Write-KobraDebug -Message ("TLS missing value encountered: {0} [{1}]" -f $Path, $Name)
+        return [pscustomobject]@{
+            KeyExists = $true
+            HasValue  = $false
+            Value     = $null
+        }
+    }
+
+    return [pscustomobject]@{
+        KeyExists = $true
+        HasValue  = $true
+        Value     = $property.Value
+    }
+}
+
+function Get-KobraTlsRegistryProperties {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return [pscustomobject]@{
+            KeyExists = $false
+            Item      = $null
+        }
+    }
+
+    try {
+        return [pscustomobject]@{
+            KeyExists = $true
+            Item      = (Get-ItemProperty -LiteralPath $Path -ErrorAction Stop)
+        }
+    }
+    catch {
+        Write-KobraDebug -Message ("TLS registry read failed for key: {0} - {1}" -f $Path, $_.Exception.Message)
+        return [pscustomobject]@{
+            KeyExists = $true
+            Item      = $null
+        }
+    }
+}
+
+function Get-KobraTlsPropertyValueFromItem {
+    param(
+        [AllowNull()]$Item,
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    if ($null -eq $Item) {
+        Write-KobraDebug -Message ("TLS missing value encountered: {0} [{1}]" -f $Path, $Name)
+        return $null
+    }
+
+    $property = $Item.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        Write-KobraDebug -Message ("TLS missing value encountered: {0} [{1}]" -f $Path, $Name)
+        return $null
+    }
+
+    return $property.Value
+}
+
+function Convert-KobraTlsProtocolState {
+    param(
+        [AllowNull()]$Enabled,
+        [AllowNull()]$DisabledByDefault,
+        [bool]$Supported = $true
+    )
+
+    if (-not $Supported) {
+        return 'Unsupported / Not present'
+    }
+
+    if ($null -eq $Enabled -and $null -eq $DisabledByDefault) {
+        return 'Default / Not configured'
+    }
+
+    if ($null -ne $Enabled) {
+        if ([int]$Enabled -eq 1) { return 'Enabled' }
+        if ([int]$Enabled -eq 0) { return 'Disabled' }
+    }
+
+    if ($null -ne $DisabledByDefault -and [int]$DisabledByDefault -eq 1) {
+        return 'Disabled'
+    }
+
+    return 'Default / Not configured'
+}
+
+function Get-KobraTlsProtocolDefinitions {
+    $base = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols'
+    $protocols = @('SSL 2.0','SSL 3.0','TLS 1.0','TLS 1.1','TLS 1.2','TLS 1.3')
+
+    foreach ($protocol in $protocols) {
+        foreach ($role in @('Server','Client')) {
+            [pscustomobject]@{
+                Category         = ('{0} Protocols' -f $role)
+                SettingName      = ('{0} {1}' -f $protocol, $role)
+                Protocol         = $protocol
+                Role             = $role
+                Path             = Join-Path $base ("{0}\{1}" -f $protocol, $role)
+                RecommendedState = if ($protocol -in @('SSL 2.0','SSL 3.0','TLS 1.0','TLS 1.1')) { 'Disabled' } else { 'Enabled' }
+                Supported        = (Test-KobraTlsProtocolSupported -Protocol $protocol)
+                Kind             = 'Protocol'
+            }
+        }
+    }
+}
+
+function Get-KobraTlsDotNetDefinitions {
+    $definitions = @(
+        [pscustomobject]@{
+            Category         = '.NET / Strong Crypto'
+            SettingName      = '.NET 4.x strong crypto (64-bit)'
+            Path             = 'HKLM:\SOFTWARE\Microsoft\.NETFramework\v4.0.30319'
+            RecommendedState = 'Enabled'
+            Supported        = (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\.NETFramework')
+            Kind             = 'DotNet'
+        }
+    )
+
+    if ([Environment]::Is64BitOperatingSystem) {
+        $definitions += [pscustomobject]@{
+            Category         = '.NET / Strong Crypto'
+            SettingName      = '.NET 4.x strong crypto (32-bit)'
+            Path             = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\.NETFramework\v4.0.30319'
+            RecommendedState = 'Enabled'
+            Supported        = (Test-Path -LiteralPath 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\.NETFramework')
+            Kind             = 'DotNet'
+        }
+    }
+
+    return @($definitions)
+}
+
+function Get-KobraTlsPlaceholderRows {
+    return @(
+        [pscustomobject]@{ Category='Ciphers'; SettingName='Cipher suite review'; CurrentState='Unsupported / Not present'; RecommendedState='Review later'; ActionText='Planned for a later phase'; Kind='Placeholder'; Supported=$false },
+        [pscustomobject]@{ Category='Hashes'; SettingName='Hash review'; CurrentState='Unsupported / Not present'; RecommendedState='Review later'; ActionText='Planned for a later phase'; Kind='Placeholder'; Supported=$false },
+        [pscustomobject]@{ Category='Key Exchanges'; SettingName='Key exchange review'; CurrentState='Unsupported / Not present'; RecommendedState='Review later'; ActionText='Planned for a later phase'; Kind='Placeholder'; Supported=$false }
+    )
+}
+
+function Get-KobraTlsScanState {
+    param([switch]$Log)
+
+    Write-KobraDebug -Message 'TLS scan started.'
+    if ($Log) {
+        Write-KobraUiLog -Message 'TLS scan started...' -BlankLine
+    }
+
+    $rows = New-Object System.Collections.ArrayList
+
+    foreach ($definition in @(Get-KobraTlsProtocolDefinitions)) {
+        $pathInfo = Get-KobraTlsRegistryProperties -Path $definition.Path
+        if (-not $pathInfo.KeyExists) {
+            Write-KobraDebug -Message ("TLS missing key encountered: {0}" -f $definition.Path)
+        }
+        $enabledValue = Get-KobraTlsPropertyValueFromItem -Item $pathInfo.Item -Path $definition.Path -Name 'Enabled'
+        $disabledByDefaultValue = Get-KobraTlsPropertyValueFromItem -Item $pathInfo.Item -Path $definition.Path -Name 'DisabledByDefault'
+        $currentState = Convert-KobraTlsProtocolState -Enabled $enabledValue -DisabledByDefault $disabledByDefaultValue -Supported $definition.Supported
+
+        Write-KobraDebug -Message ("TLS setting read: {0}; current={1}; recommended={2}; enabled={3}; disabledByDefault={4}" -f $definition.SettingName, $currentState, $definition.RecommendedState, ($enabledValue -as [string]), ($disabledByDefaultValue -as [string]))
+
+        [void]$rows.Add([pscustomobject]@{
+            Category         = $definition.Category
+            SettingName      = $definition.SettingName
+            CurrentState     = $currentState
+            RecommendedState = $definition.RecommendedState
+            ActionText       = 'Scan first'
+            Path             = $definition.Path
+            Kind             = $definition.Kind
+            Supported        = $definition.Supported
+            EnabledValue     = $enabledValue
+            DisabledValue    = $disabledByDefaultValue
+        })
+    }
+
+    foreach ($definition in @(Get-KobraTlsDotNetDefinitions)) {
+        $pathInfo = Get-KobraTlsRegistryProperties -Path $definition.Path
+        if (-not $pathInfo.KeyExists) {
+            Write-KobraDebug -Message ("TLS missing key encountered: {0}" -f $definition.Path)
+        }
+        $strongValue = Get-KobraTlsPropertyValueFromItem -Item $pathInfo.Item -Path $definition.Path -Name 'SchUseStrongCrypto'
+        $systemDefaultValue = Get-KobraTlsPropertyValueFromItem -Item $pathInfo.Item -Path $definition.Path -Name 'SystemDefaultTlsVersions'
+
+        $currentState = if (-not $definition.Supported) {
+            'Unsupported / Not present'
+        }
+        elseif (($strongValue -eq 1) -and ($systemDefaultValue -eq 1)) {
+            'Enabled'
+        }
+        elseif (($null -eq $strongValue) -and ($null -eq $systemDefaultValue)) {
+            'Default / Not configured'
+        }
+        else {
+            'Disabled'
+        }
+
+        Write-KobraDebug -Message ("TLS setting read: {0}; current={1}; SchUseStrongCrypto={2}; SystemDefaultTlsVersions={3}" -f $definition.SettingName, $currentState, ($strongValue -as [string]), ($systemDefaultValue -as [string]))
+
+        [void]$rows.Add([pscustomobject]@{
+            Category         = $definition.Category
+            SettingName      = $definition.SettingName
+            CurrentState     = $currentState
+            RecommendedState = $definition.RecommendedState
+            ActionText       = 'Scan first'
+            Path             = $definition.Path
+            Kind             = $definition.Kind
+            Supported        = $definition.Supported
+            SchUseStrongCrypto = $strongValue
+            SystemDefaultTlsVersions = $systemDefaultValue
+        })
+    }
+
+    foreach ($placeholder in @(Get-KobraTlsPlaceholderRows)) {
+        [void]$rows.Add($placeholder)
+    }
+
+    $protocolRows = @($rows | Where-Object { $_.Kind -eq 'Protocol' })
+    $legacyEnabled = @($protocolRows | Where-Object { $_.RecommendedState -eq 'Disabled' -and $_.CurrentState -eq 'Enabled' })
+    $modernGaps = @($protocolRows | Where-Object { $_.RecommendedState -eq 'Enabled' -and $_.CurrentState -eq 'Disabled' })
+    $dotNetGaps = @($rows | Where-Object { $_.Kind -eq 'DotNet' -and $_.CurrentState -ne 'Enabled' -and $_.CurrentState -ne 'Unsupported / Not present' })
+
+    $badge = if (($legacyEnabled.Count -eq 0) -and ($modernGaps.Count -eq 0) -and ($dotNetGaps.Count -eq 0)) {
+        'Modern baseline'
+    }
+    elseif (($legacyEnabled.Count -gt 0) -and ($modernGaps.Count -eq 0) -and ($dotNetGaps.Count -eq 0)) {
+        'Compatible'
+    }
+    elseif (($legacyEnabled.Count + $modernGaps.Count + $dotNetGaps.Count) -gt 0) {
+        'Mixed'
+    }
+    else {
+        'Needs review'
+    }
+
+    $legacyText = if ($legacyEnabled.Count -gt 0) {
+        ('Enabled legacy protocols detected: {0}' -f (($legacyEnabled.SettingName | Sort-Object) -join ', '))
+    }
+    else {
+        'Legacy protocols are disabled or left unsupported by the current OS.'
+    }
+
+    $modernText = if ($modernGaps.Count -gt 0) {
+        ('Modern protocols need attention: {0}' -f (($modernGaps.SettingName | Sort-Object) -join ', '))
+    }
+    else {
+        'TLS 1.2 / 1.3 are enabled or still using safe OS defaults.'
+    }
+
+    $dotNetText = if ($dotNetGaps.Count -gt 0) {
+        ('.NET strong crypto is not fully enabled for: {0}' -f (($dotNetGaps.SettingName | Sort-Object) -join ', '))
+    }
+    else {
+        '.NET strong crypto is enabled or unsupported entries were safely skipped.'
+    }
+
+    $detailLines = New-Object System.Collections.Generic.List[string]
+    $detailLines.Add(('Status badge: {0}' -f $badge))
+    $detailLines.Add(('Legacy posture: {0}' -f $legacyText))
+    $detailLines.Add(('Modern posture: {0}' -f $modernText))
+    $detailLines.Add(('DotNet posture: {0}' -f $dotNetText))
+
+    if ($Log) {
+        Write-KobraUiLog -Message ('TLS status badge: ' + $badge) -NoTimestamp
+        foreach ($line in $detailLines) {
+            Write-KobraUiLog -Message ('  ' + $line) -NoTimestamp
+        }
+    }
+
+    return [pscustomobject]@{
+        Rows        = @($rows.ToArray())
+        Badge       = $badge
+        LegacyText  = $legacyText
+        ModernText  = $modernText
+        DotNetText  = $dotNetText
+        DetailText  = ($detailLines -join [Environment]::NewLine)
+        ScannedAt   = Get-Date
+    }
+}
+
+function Get-KobraTlsPreviewPlan {
+    param(
+        [Parameter(Mandatory)][psobject]$ScanState,
+        [Parameter(Mandatory)][string]$Preset
+    )
+
+    Write-KobraDebug -Message ("TLS profile selected: {0}" -f $Preset)
+
+    $matrixRows = New-Object System.Collections.ArrayList
+    $changes = New-Object System.Collections.ArrayList
+    $previewLines = New-Object System.Collections.Generic.List[string]
+
+    foreach ($row in @($ScanState.Rows)) {
+        if ($row.Kind -eq 'Placeholder') {
+            [void]$matrixRows.Add($row)
+            continue
+        }
+
+        $actionText = 'Review only'
+        $recommendedState = $row.RecommendedState
+        $supported = [bool]$row.Supported
+
+        if (-not $supported) {
+            $actionText = 'Unsupported on this OS - skipped'
+            $previewLines.Add(('Skip {0} ({1})' -f $row.SettingName, $row.CurrentState))
+        }
+        elseif ($Preset -ne 'recommended') {
+            if ($row.CurrentState -eq $recommendedState) {
+                $actionText = 'Already aligned for preview'
+            }
+            else {
+                $actionText = 'Would change in preview-only profile'
+            }
+            $previewLines.Add(('Preview only: {0} -> {1}' -f $row.SettingName, $recommendedState))
+        }
+        elseif ($row.Kind -eq 'Protocol') {
+            if ($recommendedState -eq 'Disabled') {
+                if ($row.CurrentState -eq 'Disabled') {
+                    $actionText = 'Already disabled'
+                    $previewLines.Add(('Keep {0} disabled' -f $row.SettingName))
+                }
+                else {
+                    $actionText = 'Disable explicitly'
+                    $previewLines.Add(('Disable {0}' -f $row.SettingName))
+                    [void]$changes.Add([pscustomobject]@{ SettingName=$row.SettingName; Supported=$true; ActionType='set'; Path=$row.Path; ValueName='Enabled'; Value=0 })
+                    [void]$changes.Add([pscustomobject]@{ SettingName=$row.SettingName; Supported=$true; ActionType='set'; Path=$row.Path; ValueName='DisabledByDefault'; Value=1 })
+                }
+            }
+            else {
+                if ($row.CurrentState -eq 'Disabled') {
+                    $actionText = 'Enable explicitly'
+                    $previewLines.Add(('Enable {0}' -f $row.SettingName))
+                    [void]$changes.Add([pscustomobject]@{ SettingName=$row.SettingName; Supported=$true; ActionType='set'; Path=$row.Path; ValueName='Enabled'; Value=1 })
+                    [void]$changes.Add([pscustomobject]@{ SettingName=$row.SettingName; Supported=$true; ActionType='set'; Path=$row.Path; ValueName='DisabledByDefault'; Value=0 })
+                }
+                elseif ($row.CurrentState -eq 'Default / Not configured') {
+                    $actionText = 'Keep OS default'
+                    $previewLines.Add(('Keep {0} default / not configured' -f $row.SettingName))
+                }
+                else {
+                    $actionText = 'Already enabled'
+                    $previewLines.Add(('Keep {0} enabled' -f $row.SettingName))
+                }
+            }
+        }
+        elseif ($row.Kind -eq 'DotNet') {
+            if ($row.CurrentState -eq 'Enabled') {
+                $actionText = 'Already enabled'
+                $previewLines.Add(('Keep {0} enabled' -f $row.SettingName))
+            }
+            else {
+                $actionText = 'Enable strong crypto flags'
+                $previewLines.Add(('Enable {0}' -f $row.SettingName))
+                [void]$changes.Add([pscustomobject]@{ SettingName=$row.SettingName; Supported=$true; ActionType='set'; Path=$row.Path; ValueName='SchUseStrongCrypto'; Value=1 })
+                [void]$changes.Add([pscustomobject]@{ SettingName=$row.SettingName; Supported=$true; ActionType='set'; Path=$row.Path; ValueName='SystemDefaultTlsVersions'; Value=1 })
+            }
+        }
+
+        [void]$matrixRows.Add([pscustomobject]@{
+            Category         = $row.Category
+            SettingName      = $row.SettingName
+            CurrentState     = $row.CurrentState
+            RecommendedState = $recommendedState
+            ActionText       = $actionText
+            Kind             = $row.Kind
+            Supported        = $supported
+            Path             = $row.Path
+        })
+    }
+
+    Write-KobraDebug -Message ("TLS preview built: preset={0}; pendingChanges={1}" -f $Preset, $changes.Count)
+
+    return [pscustomobject]@{
+        Preset      = $Preset
+        Description = (Get-KobraTlsPresetDescription -Preset $Preset)
+        MatrixRows  = @($matrixRows.ToArray())
+        Changes     = @($changes.ToArray())
+        PreviewText = ($previewLines -join [Environment]::NewLine)
+        CanApply    = ($Preset -eq 'recommended')
+    }
+}
+
+function Get-KobraLatestTlsBackupPath {
+    if (-not (Test-Path -LiteralPath $script:BackupRoot)) {
+        return $null
+    }
+
+    $latest = Get-ChildItem -LiteralPath $script:BackupRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like 'KobraTlsBackup_*' } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+
+    if ($latest) {
+    return $latest.FullName
+}
+
+function Get-KobraLatestSafetyBackupPath {
+    if (-not (Test-Path -LiteralPath $script:BackupRoot)) {
+        return $null
+    }
+
+    $latest = Get-ChildItem -LiteralPath $script:BackupRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like 'KobraBackup_*' } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+
+    if ($null -eq $latest) {
+        return $null
+    }
+
+    return $latest.FullName
+}
+
+    return $null
+}
+
+function Get-KobraTlsBackupStatus {
+    if ($null -ne $script:LastTlsBackup -and $script:LastTlsBackup.PSObject.Properties.Name -contains 'BackupPath') {
+        return ('TLS backup ready: {0}' -f $script:LastTlsBackup.BackupPath)
+    }
+
+    $latest = Get-KobraLatestTlsBackupPath
+    if ($latest) {
+        return ('Latest TLS backup: {0}' -f $latest)
+    }
+
+    return 'No TLS backup created yet.'
+}
+
+function Get-KobraTlsBackupRoot {
+    if ($null -ne $script:TxtTlsBackupStatus) {
+        $tagValue = $script:TxtTlsBackupStatus.Tag -as [string]
+        if (-not [string]::IsNullOrWhiteSpace($tagValue)) {
+            return $tagValue
+        }
+    }
+
+    return $script:BackupRoot
+}
+
+function Set-KobraTlsBackupRoot {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        $Path = $script:BackupRoot
+    }
+
+    if ($null -ne $script:TxtTlsBackupStatus) {
+        $script:TxtTlsBackupStatus.Tag = $Path
+    }
+}
+
+function Select-KobraTlsBackupFolder {
+    Add-Type -AssemblyName System.Windows.Forms
+
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = 'Choose where Kobra should save TLS backups'
+    $dialog.ShowNewFolderButton = $true
+    $dialog.SelectedPath = Get-KobraTlsBackupRoot
+
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        Set-KobraTlsBackupRoot -Path $dialog.SelectedPath
+        Write-KobraDebug -Message ("TLS backup root selected: {0}" -f $dialog.SelectedPath)
+        return $dialog.SelectedPath
+    }
+
+    return $null
+}
+
+function Invoke-KobraTlsWorkerProcess {
+    param(
+        [Parameter(Mandatory)][ValidateSet('Apply','Restore')]$Mode,
+        [string]$BackupRoot,
+        [bool]$CreateRestorePoint = $false,
+        [object[]]$Changes = @(),
+        [string]$RestoreBackupPath
+    )
+
+    $tempRoot = Join-Path $env:TEMP 'KobraOptimizer'
+    $null = New-Item -Path $tempRoot -ItemType Directory -Force -ErrorAction SilentlyContinue
+
+    $stamp = Get-Date -Format 'yyyyMMdd_HHmmssfff'
+    $workerScriptPath = Join-Path $tempRoot ("tls_worker_{0}.ps1" -f $stamp)
+    $changesPath = Join-Path $tempRoot ("tls_changes_{0}.json" -f $stamp)
+    $resultPath = Join-Path $tempRoot ("tls_result_{0}.json" -f $stamp)
+    $workerLogPath = Join-Path $tempRoot ("tls_worker_{0}.log" -f $stamp)
+    $modulePath = Join-Path $script:ModuleRoot 'Kobra_Network.psm1'
+
+    if ($Mode -eq 'Apply') {
+        @($Changes) | ConvertTo-Json -Depth 6 | Set-Content -Path $changesPath -Encoding UTF8
+    }
+
+    $workerScript = @'
+param(
+    [string]$Mode,
+    [string]$ModulePath,
+    [string]$BackupRoot,
+    [string]$ChangesPath,
+    [string]$ResultPath,
+    [string]$WorkerLogPath,
+    [string]$RestoreBackupPath,
+    [int]$CreateRestorePoint
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Write-WorkerLog {
+    param([string]$Message)
+    $line = "[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'), $Message
+    Add-Content -Path $WorkerLogPath -Value $line -Encoding UTF8
+}
+
+Import-Module $ModulePath -Force
+Write-WorkerLog ("TLS worker started. Mode={0}" -f $Mode)
+
+try {
+    if ($Mode -eq 'Apply') {
+        $backup = Invoke-KobraTlsBackup -BackupRoot $BackupRoot -Log ${function:Write-WorkerLog}
+        if ($CreateRestorePoint -ne 0) {
+            Invoke-KobraGuard -Log ${function:Write-WorkerLog}
+        }
+
+        $changes = @()
+        if (Test-Path -LiteralPath $ChangesPath) {
+            $raw = Get-Content -LiteralPath $ChangesPath -Raw
+            if (-not [string]::IsNullOrWhiteSpace($raw)) {
+                $changes = @((ConvertFrom-Json -InputObject $raw))
+            }
+        }
+
+        $summary = Invoke-KobraTlsChangeSet -Changes $changes -Log ${function:Write-WorkerLog}
+        [pscustomobject]@{
+            Mode           = 'Apply'
+            BackupPath     = $backup.BackupPath
+            ChangedCount   = $summary.ChangedCount
+            SkippedCount   = $summary.SkippedCount
+            AlreadyCount   = $summary.AlreadyCompliant
+            RebootRequired = $summary.RebootRequired
+            WorkerLogPath  = $WorkerLogPath
+        } | ConvertTo-Json -Depth 5 | Set-Content -Path $ResultPath -Encoding UTF8
+    }
+    elseif ($Mode -eq 'Restore') {
+        $summary = Invoke-KobraTlsRestore -BackupPath $RestoreBackupPath -Log ${function:Write-WorkerLog}
+        [pscustomobject]@{
+            Mode           = 'Restore'
+            BackupPath     = $summary.BackupPath
+            ImportedCount  = $summary.ImportedCount
+            RebootRequired = $summary.RebootRequired
+            WorkerLogPath  = $WorkerLogPath
+        } | ConvertTo-Json -Depth 5 | Set-Content -Path $ResultPath -Encoding UTF8
+    }
+    else {
+        throw "Unsupported mode: $Mode"
+    }
+
+    Write-WorkerLog 'TLS worker completed successfully.'
+}
+catch {
+    Write-WorkerLog ("TLS worker failed: {0}" -f $_.Exception.Message)
+    throw
+}
+'@
+    Set-Content -Path $workerScriptPath -Value $workerScript -Encoding UTF8
+
+    $workerArgs = @(
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', $workerScriptPath,
+        '-Mode', $Mode,
+        '-ModulePath', $modulePath,
+        '-ResultPath', $resultPath,
+        '-WorkerLogPath', $workerLogPath,
+        '-CreateRestorePoint', $(if ($CreateRestorePoint) { '1' } else { '0' })
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) {
+        $workerArgs += @('-BackupRoot', $BackupRoot)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($changesPath) -and (Test-Path -LiteralPath $changesPath)) {
+        $workerArgs += @('-ChangesPath', $changesPath)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($RestoreBackupPath)) {
+        $workerArgs += @('-RestoreBackupPath', $RestoreBackupPath)
+    }
+
+    Write-KobraDebug -Message ("TLS worker launch: mode={0}; script={1}; args={2}" -f $Mode, $workerScriptPath, ($workerArgs -join ' '))
+    $output = & powershell.exe @workerArgs 2>&1
+    $exitCode = $LASTEXITCODE
+
+    if ($output) {
+        foreach ($line in ($output | Out-String).Trim().Split([Environment]::NewLine)) {
+            if (-not [string]::IsNullOrWhiteSpace($line)) {
+                Write-KobraDebug -Message ('TLS worker stdout: ' + $line.Trim())
+            }
+        }
+    }
+
+    if ($exitCode -ne 0) {
+        $detail = if (Test-Path -LiteralPath $workerLogPath) { (Get-Content -LiteralPath $workerLogPath -Tail 40) -join [Environment]::NewLine } else { (($output | Out-String).Trim()) }
+        throw ("TLS worker process failed.`n{0}" -f $detail)
+    }
+
+    if (-not (Test-Path -LiteralPath $resultPath)) {
+        throw 'TLS worker process finished without writing a result file.'
+    }
+
+    $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
+    Write-KobraDebug -Message ("TLS worker completed: mode={0}; resultPath={1}" -f $Mode, $resultPath)
+    return $result
+}
+
+function Update-KobraTlsPanel {
+    if ($null -eq $script:TxtTlsSummary) {
+        return
+    }
+
+    $preset = Get-KobraTlsPreset
+    if ($null -ne $script:TxtTlsRecommendation) {
+        $script:TxtTlsRecommendation.Text = (Get-KobraTlsPresetDescription -Preset $preset)
+    }
+    if ($null -ne $script:TxtTlsProfileDescription) {
+        $script:TxtTlsProfileDescription.Text = (Get-KobraTlsPresetDescription -Preset $preset)
+    }
+
+    if (-not $script:TlsScanCompleted -or $null -eq $script:TlsScanState) {
+        $script:TxtTlsSummary.Text = 'TLS scan has not been run yet.'
+        if ($null -ne $script:TxtTlsStatusBadge) { $script:TxtTlsStatusBadge.Text = 'Needs review' }
+        if ($null -ne $script:TxtTlsLegacyState) { $script:TxtTlsLegacyState.Text = 'Run Scan TLS to inspect legacy protocol posture safely.' }
+        if ($null -ne $script:TxtTlsModernState) { $script:TxtTlsModernState.Text = 'Modern protocol state will appear here after scanning.' }
+        if ($null -ne $script:TxtTlsDotNetState) { $script:TxtTlsDotNetState.Text = '.NET strong crypto state will appear here after scanning.' }
+        if ($null -ne $script:TxtTlsProtocols) { $script:TxtTlsProtocols.Text = 'Scan TLS to populate the detailed matrix and summary cards.' }
+        if ($null -ne $script:TxtTlsPreview) { $script:TxtTlsPreview.Text = 'Load a profile or click Preview Changes after scanning to see the exact registry-backed actions Kobra would take.' }
+        if ($null -ne $script:TxtTlsResultSummary) { $script:TxtTlsResultSummary.Text = 'No TLS changes applied yet.' }
+        if ($null -ne $script:TlsMatrixList) { $script:TlsMatrixList.ItemsSource = $null }
+        if ($null -ne $script:BtnTlsApply) { $script:BtnTlsApply.IsEnabled = $false }
+        if ($null -ne $script:BtnTlsRestore) { $script:BtnTlsRestore.IsEnabled = ($null -ne (Get-KobraLatestTlsBackupPath)) }
+        if ($null -ne $script:TxtTlsBackupStatus) { $script:TxtTlsBackupStatus.Text = ((Get-KobraTlsBackupStatus) + ' | Backup root: ' + (Get-KobraTlsBackupRoot)) }
+        Invoke-KobraUiRefresh
+        return
+    }
+
+    $script:TxtTlsSummary.Text = ('TLS scan completed {0}. Status: {1}' -f $script:TlsScanState.ScannedAt.ToString('MMM d, h:mm tt'), $script:TlsScanState.Badge)
+    if ($null -ne $script:TxtTlsStatusBadge) { $script:TxtTlsStatusBadge.Text = $script:TlsScanState.Badge }
+    if ($null -ne $script:TxtTlsLegacyState) { $script:TxtTlsLegacyState.Text = $script:TlsScanState.LegacyText }
+    if ($null -ne $script:TxtTlsModernState) { $script:TxtTlsModernState.Text = $script:TlsScanState.ModernText }
+    if ($null -ne $script:TxtTlsDotNetState) { $script:TxtTlsDotNetState.Text = $script:TlsScanState.DotNetText }
+    if ($null -ne $script:TxtTlsProtocols) { $script:TxtTlsProtocols.Text = $script:TlsScanState.DetailText }
+
+    $previewState = $script:TlsPreviewState
+    if ($null -eq $previewState -or $previewState.Preset -ne $preset) {
+        $previewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset $preset
+        $script:TlsPreviewState = $previewState
+    }
+
+    if ($null -ne $script:TlsMatrixList) {
+        Write-KobraDebug -Message ("TLS matrix binding rows: {0}" -f @($previewState.MatrixRows).Count)
+        $script:TlsMatrixList.ItemsSource = $null
+        $script:TlsMatrixList.ItemsSource = @($previewState.MatrixRows)
+    }
+
+    if ($null -ne $script:TxtTlsPreview) {
+        $script:TxtTlsPreview.Text = $previewState.PreviewText
+    }
+
+    if ($null -ne $script:BtnTlsApply) {
+        $script:BtnTlsApply.IsEnabled = [bool]$previewState.CanApply
+    }
+
+    if ($null -ne $script:TxtTlsBackupStatus) {
+        $script:TxtTlsBackupStatus.Text = ((Get-KobraTlsBackupStatus) + ' | Backup root: ' + (Get-KobraTlsBackupRoot))
+    }
+
+    if ($null -ne $script:BtnTlsRestore) {
+        $script:BtnTlsRestore.IsEnabled = ($null -ne (Get-KobraLatestTlsBackupPath))
+    }
+
+    if ($null -ne $script:TxtTlsResultSummary -and $null -ne $script:TlsApplySummary) {
+        $script:TxtTlsResultSummary.Text = $script:TlsApplySummary
+    }
+
+    Invoke-KobraUiRefresh
+}
+
+Set-KobraTlsBackupRoot -Path $script:BackupRoot
 
 
 function Get-KobraResultNote {
@@ -1142,6 +1977,20 @@ function Get-KobraResultNote {
         'Registry -*' { return 'Safe user traces only; grouped for review before cleaning' }
         default { return '' }
     }
+}
+
+function Get-KobraResultProtectedCount {
+    param([psobject]$Item)
+
+    if ($null -eq $Item) {
+        return 0
+    }
+
+    if ($Item.PSObject.Properties.Name -contains 'ProtectedCount') {
+        return [int](Get-KobraSafeInt64 $Item.ProtectedCount)
+    }
+
+    return 0
 }
 
 
@@ -1463,8 +2312,6 @@ function Update-KobraResultsPanel {
     }
     if ($null -ne $script:BtnResultsRescan) { $script:BtnResultsRescan.Visibility = 'Visible' }
     if ($null -ne $script:BtnResultsBackCustom) { $script:BtnResultsBackCustom.Visibility = 'Visible' }
-    if ($null -ne $script:BtnResultsOpenDebugLog) { $script:BtnResultsOpenDebugLog.Visibility = 'Visible' }
-
     Update-KobraSelectionSummary
     Update-KobraDashboard
     Invoke-KobraUiRefresh
@@ -1487,6 +2334,7 @@ function Show-KobraCleanupSummary {
     $skippedItems = 0
     $failedItems = 0
     $lockedItems = 0
+    $protectedItems = 0
     [int64]$bytesFreed = 0
 
     foreach ($item in @($ExecutionResults)) {
@@ -1506,12 +2354,25 @@ function Show-KobraCleanupSummary {
         $lockedItems += [int](Get-KobraSafeInt64 $item.LockedCount)
         $bytesFreed += Get-KobraSafeInt64 $item.RemovedBytes
 
+        $reasonText = ($item.Reason -as [string])
+        $protectedCount = Get-KobraResultProtectedCount -Item $item
+        $protectedItems += $protectedCount
+
         $noteParts = @()
         if ((Get-KobraSafeInt64 $item.RemovedCount) -gt 0) { $noteParts += ('cleaned {0:N0}' -f $item.RemovedCount) }
-        if ((Get-KobraSafeInt64 $item.SkippedCount) -gt 0) { $noteParts += ('skipped {0:N0}' -f $item.SkippedCount) }
         if ((Get-KobraSafeInt64 $item.LockedCount) -gt 0) { $noteParts += ('locked {0:N0}' -f $item.LockedCount) }
+        $nonProtectedSkipped = [Math]::Max(0, [int](Get-KobraSafeInt64 $item.SkippedCount) - $protectedCount - [int](Get-KobraSafeInt64 $item.LockedCount))
+        if ($nonProtectedSkipped -gt 0) { $noteParts += ('skipped {0:N0}' -f $nonProtectedSkipped) }
+        if ($protectedCount -gt 0) {
+            if (($item.Category -as [string]) -like '*Windows Update Cache*') {
+                $noteParts += ('reserved by Windows {0:N0}' -f $protectedCount)
+            }
+            else {
+                $noteParts += ('protected by Windows {0:N0}' -f $protectedCount)
+            }
+        }
         if ((Get-KobraSafeInt64 $item.FailedCount) -gt 0) { $noteParts += ('failed {0:N0}' -f $item.FailedCount) }
-        if (-not [string]::IsNullOrWhiteSpace(($item.Reason -as [string]))) { $noteParts += ($item.Reason -as [string]) }
+        if (-not [string]::IsNullOrWhiteSpace($reasonText)) { $noteParts += $reasonText }
         if ($noteParts.Count -eq 0) { $noteParts += 'no changes needed' }
 
         [void]$bindingList.Add([pscustomobject]@{
@@ -1538,18 +2399,21 @@ function Show-KobraCleanupSummary {
     $script:ResultsList.ItemsSource = $resultsBinding
     $script:ResultsMode = 'CleanupSummary'
 
-    $statusText = if ($failedItems -gt 0) {
-        'Cleanup partially failed'
-    }
-    elseif ($skippedItems -gt 0 -or $lockedItems -gt 0) {
-        'Cleanup completed with skips'
+    $effectiveFailedItems = [Math]::Max(0, $failedItems - $protectedItems)
+
+    $statusText = if ($effectiveFailedItems -gt 0 -or $protectedItems -gt 0 -or $skippedItems -gt 0 -or $lockedItems -gt 0) {
+        'Cleanup partially succeeded'
     }
     else {
         'Cleanup completed'
     }
 
     $script:TxtResultsHeadline.Text = $statusText
-    $script:TxtResultsSubHeadline.Text = ('Cleaned: {0:N0} | Skipped: {1:N0} | Failed: {2:N0} | Locked: {3:N0} | Bytes freed: {4:N2} MB' -f $cleanedItems, $skippedItems, $failedItems, $lockedItems, ($bytesFreed / 1MB))
+    $subHeadline = ('Cleaned: {0:N0} | Skipped: {1:N0} | Could not remove: {2:N0} | Locked: {3:N0} | Bytes freed: {4:N2} MB' -f $cleanedItems, $skippedItems, $effectiveFailedItems, $lockedItems, ($bytesFreed / 1MB))
+    if ($protectedItems -gt 0) {
+        $subHeadline += (' | Reserved / protected by Windows: {0:N0}' -f $protectedItems)
+    }
+    $script:TxtResultsSubHeadline.Text = $subHeadline
     if ($null -ne $script:TxtResultsMode) {
         $script:TxtResultsMode.Text = $statusText
     }
@@ -1559,32 +2423,38 @@ function Show-KobraCleanupSummary {
     }
     if ($null -ne $script:BtnResultsRescan) { $script:BtnResultsRescan.Visibility = 'Visible' }
     if ($null -ne $script:BtnResultsBackCustom) { $script:BtnResultsBackCustom.Visibility = 'Visible' }
-    if ($null -ne $script:BtnResultsOpenDebugLog) { $script:BtnResultsOpenDebugLog.Visibility = 'Visible' }
-
     $sectionSummaryText = @()
     foreach ($sectionName in $sectionMap.Keys) {
         $section = $sectionMap[$sectionName]
         if (($section.Found + $section.Removed + $section.Skipped + $section.Failed + $section.Locked) -eq 0) { continue }
-        $sectionSummaryText += ('{0}: removed {1:N0}, skipped {2:N0}, failed {3:N0}, locked {4:N0}, freed {5:N2} MB' -f $sectionName, $section.Removed, $section.Skipped, $section.Failed, $section.Locked, ($section.RemovedBytes / 1MB))
+        $sectionFailed = $section.Failed
+        if ($sectionName -eq 'System' -and $protectedItems -gt 0) {
+            $sectionFailed = [Math]::Max(0, $sectionFailed - $protectedItems)
+        }
+        $sectionSummaryText += ('{0}: removed {1:N0}, skipped {2:N0}, failed {3:N0}, locked {4:N0}, freed {5:N2} MB' -f $sectionName, $section.Removed, $section.Skipped, $sectionFailed, $section.Locked, ($section.RemovedBytes / 1MB))
     }
 
     $script:LastCleanupSummary = [pscustomobject]@{
         ScopeLabel    = $ScopeLabel
         CleanedItems  = $cleanedItems
         SkippedItems  = $skippedItems
-        FailedItems   = $failedItems
+        FailedItems   = $effectiveFailedItems
         LockedItems   = $lockedItems
+        ProtectedItems = $protectedItems
         BytesFreed    = $bytesFreed
         SectionTotals = $sectionMap
         Rows          = @($ExecutionResults)
     }
 
     Update-KobraLastActionStatus -Status $statusText
-    Write-KobraDebug -Message ('Cleanup summary scope=' + $ScopeLabel + '; cleaned=' + $cleanedItems + '; skipped=' + $skippedItems + '; failed=' + $failedItems + '; locked=' + $lockedItems + '; bytesFreed=' + $bytesFreed)
+    Write-KobraDebug -Message ('Cleanup summary scope=' + $ScopeLabel + '; cleaned=' + $cleanedItems + '; skipped=' + $skippedItems + '; failed=' + $effectiveFailedItems + '; protected=' + $protectedItems + '; locked=' + $lockedItems + '; bytesFreed=' + $bytesFreed)
     Write-KobraUiLog -Message 'Cleanup summary:' -NoTimestamp
     Write-KobraUiLog -Message (('  Cleaned items: {0:N0}' -f $cleanedItems)) -NoTimestamp
     Write-KobraUiLog -Message (('  Skipped items: {0:N0}' -f $skippedItems)) -NoTimestamp
-    Write-KobraUiLog -Message (('  Failed items: {0:N0}' -f $failedItems)) -NoTimestamp
+    if ($protectedItems -gt 0) {
+        Write-KobraUiLog -Message (('  Protected items skipped by Windows: {0:N0}' -f $protectedItems)) -NoTimestamp
+    }
+    Write-KobraUiLog -Message (('  Failed items: {0:N0}' -f $effectiveFailedItems)) -NoTimestamp
     Write-KobraUiLog -Message (('  Locked items: {0:N0}' -f $lockedItems)) -NoTimestamp
     Write-KobraUiLog -Message (('  Bytes freed: {0:N2} MB' -f ($bytesFreed / 1MB))) -NoTimestamp
     foreach ($line in $sectionSummaryText) {
@@ -1662,9 +2532,28 @@ function Update-KobraSelectionSummary {
         }
 
         $script:TxtSelectedCategoryCount.Text = ('{0} sections summarized' -f $sectionCount)
-        $script:TxtSelectedRecordCount.Text = ('{0:N0} cleaned | {1:N0} skipped | {2:N0} failed | {3:N0} locked' -f $script:LastCleanupSummary.CleanedItems, $script:LastCleanupSummary.SkippedItems, $script:LastCleanupSummary.FailedItems, $script:LastCleanupSummary.LockedItems)
+        $effectiveFailedSummary = [Math]::Max(0, $script:LastCleanupSummary.FailedItems - $script:LastCleanupSummary.ProtectedItems)
+        $script:TxtSelectedRecordCount.Text = ('{0:N0} cleaned | {1:N0} skipped | {2:N0} could not remove | {3:N0} locked' -f $script:LastCleanupSummary.CleanedItems, $script:LastCleanupSummary.SkippedItems, $effectiveFailedSummary, $script:LastCleanupSummary.LockedItems)
         $script:TxtSelectedBytes.Text = ('{0:N2} MB freed' -f ($script:LastCleanupSummary.BytesFreed / 1MB))
-        $script:TxtSelectedWarnings.Text = 'Use Rescan to rebuild results after cleanup, or go back to Custom Clean to adjust categories.'
+        $summaryReasons = New-Object System.Collections.Generic.List[string]
+        if ($script:LastCleanupSummary.LockedItems -gt 0) {
+            $summaryReasons.Add(('Some files were in use by open apps or Windows and were skipped ({0:N0}).' -f $script:LastCleanupSummary.LockedItems))
+        }
+        if ($script:LastCleanupSummary.ProtectedItems -gt 0) {
+            $summaryReasons.Add(('Some items were reserved, protected, or still in use by Windows servicing and were left in place safely ({0:N0}).' -f $script:LastCleanupSummary.ProtectedItems))
+        }
+        if ($effectiveFailedSummary -gt 0) {
+            $summaryReasons.Add(('Some items could not be removed because Windows denied access or restricted the operation ({0:N0}).' -f $effectiveFailedSummary))
+        }
+        if ($summaryReasons.Count -eq 0 -and $script:LastCleanupSummary.SkippedItems -gt 0) {
+            $summaryReasons.Add(('Some items were skipped based on current cleanup safety rules ({0:N0}).' -f $script:LastCleanupSummary.SkippedItems))
+        }
+        if ($summaryReasons.Count -gt 0) {
+            $script:TxtSelectedWarnings.Text = ($summaryReasons -join ' ')
+        }
+        else {
+            $script:TxtSelectedWarnings.Text = 'Cleanup finished cleanly. Use Rescan to rebuild results, or go back to Custom Clean to adjust categories.'
+        }
         return
     }
 
@@ -1728,6 +2617,182 @@ function Update-KobraDashboard {
     }
 
     Update-KobraRecentActivity
+    Update-KobraHealthPage
+}
+
+function Resolve-KobraDnsProviderLabel {
+    param([string[]]$Servers)
+
+    $normalized = @($Servers | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim().ToLowerInvariant() } | Sort-Object -Unique)
+    if ($normalized.Count -eq 0) { return 'Automatic / DHCP' }
+
+    $joined = ',' + ($normalized -join ',') + ','
+    if ($joined -match ',1\.1\.1\.1,' -or $joined -match ',2606:4700:4700::1111,') { return 'Cloudflare' }
+    if ($joined -match ',8\.8\.8\.8,' -or $joined -match ',2001:4860:4860::8888,') { return 'Google' }
+    if ($joined -match ',9\.9\.9\.9,' -or $joined -match ',2620:fe::fe,') { return 'Quad9' }
+    if ($joined -match ',208\.67\.222\.222,' -or $joined -match ',2620:119:35::35,') { return 'OpenDNS' }
+    return 'Custom / ISP'
+}
+
+function Get-KobraDnsHealthSnapshot {
+    $entries = @(Get-DnsClientServerAddress -ErrorAction SilentlyContinue | Where-Object { $_.InterfaceAlias })
+    if ($entries.Count -eq 0) {
+        return [pscustomobject]@{
+            Summary = 'No active DNS adapters were detected.'
+            Detail  = 'Kobra could not read active adapter DNS settings right now.'
+        }
+    }
+
+    $adapterLines = New-Object System.Collections.Generic.List[string]
+    $providers = New-Object System.Collections.Generic.List[string]
+    foreach ($entry in $entries) {
+        $servers = @()
+        if ($null -ne $entry.ServerAddresses) { $servers = @($entry.ServerAddresses) }
+        $provider = Resolve-KobraDnsProviderLabel -Servers $servers
+        if (-not $providers.Contains($provider)) { $providers.Add($provider) }
+        $serverText = if ($servers.Count -gt 0) { ($servers | Select-Object -First 2) -join ', ' } else { 'automatic' }
+        $adapterLines.Add(('{0}: {1} ({2})' -f $entry.InterfaceAlias, $provider, $serverText))
+    }
+
+    $summary = if ($providers.Count -eq 1) {
+        '{0} on {1} adapter(s)' -f $providers[0], $entries.Count
+    }
+    else {
+        'Mixed DNS across {0} adapter(s)' -f $entries.Count
+    }
+
+    return [pscustomobject]@{
+        Summary = $summary
+        Detail  = (@($adapterLines | Select-Object -First 2) -join ' | ')
+    }
+}
+
+function Get-KobraStartupHealthSnapshot {
+    $entries = @(Get-KobraStartupEntriesForUi)
+    $enabled = @($entries | Where-Object { $_.IsEnabled }).Count
+    $disabled = @($entries | Where-Object { -not $_.IsEnabled }).Count
+
+    $summary = if ($enabled -gt 0) {
+        '{0} enabled startup item(s)' -f $enabled
+    }
+    else {
+        'No enabled non-Microsoft startup items found'
+    }
+
+    return [pscustomobject]@{
+        Summary = $summary
+        Detail  = ('Enabled: {0} | Disabled: {1}' -f $enabled, $disabled)
+    }
+}
+
+function Get-KobraRegistryHealthSnapshot {
+    $candidates = @(Get-KobraRegistryCandidates)
+    $categoryCount = @($candidates | Group-Object Category).Count
+
+    if ($candidates.Count -eq 0) {
+        return [pscustomobject]@{
+            Summary = 'No safe registry trace items found'
+            Detail  = 'Run history, typed paths, and recent docs traces are already clear.'
+        }
+    }
+
+    return [pscustomobject]@{
+        Summary = ('{0:N0} trace item(s) across {1} group(s)' -f $candidates.Count, $categoryCount)
+        Detail  = ((@($candidates | Group-Object Category | Sort-Object Count -Descending | Select-Object -First 2 | ForEach-Object { '{0} ({1})' -f $_.Name.Replace('Registry - ','').Trim(), $_.Count })) -join ' | ')
+    }
+}
+
+function New-KobraHealthSnapshot {
+    param(
+        [Parameter(Mandatory)][psobject]$Manifest,
+        [Parameter(Mandatory)][psobject]$TlsState
+    )
+
+    $dns = Get-KobraDnsHealthSnapshot
+    $startup = Get-KobraStartupHealthSnapshot
+    $registry = Get-KobraRegistryHealthSnapshot
+    $latestBackup = Get-KobraLatestBackupPath
+    $safetySummary = if ($latestBackup) { 'Latest backup: ' + (Split-Path -Leaf $latestBackup) } else { 'No backup bundle found yet' }
+    $safetyDetail = if ($latestBackup) { 'Backups are available before deeper changes.' } else { 'Create a backup before larger cleanup or performance changes.' }
+    $largestCategory = @($Manifest.CategorySummary | Sort-Object SizeBytes -Descending | Select-Object -First 1)
+    $largestCategoryText = if ($largestCategory.Count -gt 0) {
+        '{0} ({1:N2} MB)' -f $largestCategory[0].Category, (($largestCategory[0].SizeBytes) / 1MB)
+    }
+    else {
+        'No cleanup categories detected yet'
+    }
+
+    $tips = New-Object System.Collections.Generic.List[string]
+    if ($Manifest.TotalBytes -gt 0) {
+        $tips.Add(('Cleanup opportunity: {0:N2} MB is currently reclaimable.' -f ($Manifest.TotalBytes / 1MB)))
+    }
+    if ($TlsState.Badge -ne 'Modern baseline') {
+        $tips.Add(('TLS posture: {0}. Review the TLS / Security page for a safer modern baseline.' -f $TlsState.Badge))
+    }
+    if ($dns.Summary -match 'Automatic / DHCP|Custom / ISP|Mixed DNS') {
+        $tips.Add('DNS is not pinned to a single known public profile. Review the Performance page if you want to standardize it.')
+    }
+    if ($startup.Summary -match '^\d+') {
+        $tips.Add(('Startup load: {0}. Open Startup Manager if boot-up feels heavy.' -f $startup.Summary))
+    }
+    if (-not $latestBackup) {
+        $tips.Add('Safety: no backup bundle has been created yet.')
+    }
+    if ($registry.Summary -notmatch '^No safe') {
+        $tips.Add('Registry traces were found. These are reviewable history traces, not generic registry “errors.”')
+    }
+    if ($tips.Count -eq 0) {
+        $tips.Add('Your system looks fairly clean right now. Review Results or open deeper tools if you want to tune further.')
+    }
+
+    return [pscustomobject]@{
+        CleanupSummary   = ('{0:N2} MB across {1:N0} removable item(s)' -f ($Manifest.TotalBytes / 1MB), $Manifest.CandidateCount)
+        CleanupDetail    = ('Largest target: {0}' -f $largestCategoryText)
+        TlsSummary       = $TlsState.Badge
+        TlsDetail        = $TlsState.LegacyText
+        DnsSummary       = $dns.Summary
+        DnsDetail        = $dns.Detail
+        StartupSummary   = $startup.Summary
+        StartupDetail    = $startup.Detail
+        RegistrySummary  = $registry.Summary
+        RegistryDetail   = $registry.Detail
+        SafetySummary    = $safetySummary
+        SafetyDetail     = $safetyDetail
+        TipsText         = ($tips -join [Environment]::NewLine)
+        LastUpdated      = Get-Date
+    }
+}
+
+function Update-KobraHealthPage {
+    if ($null -eq $script:TxtHealthCleanup) { return }
+
+    $snapshot = $script:LastHealthSnapshot
+    $startup = Get-KobraStartupHealthSnapshot
+    $latestBackup = Get-KobraLatestBackupPath
+    $healthSafetySummary = if ($latestBackup) { 'Latest backup: ' + (Split-Path -Leaf $latestBackup) } else { 'No backup bundle found yet' }
+    $healthSafetyDetail = if ($latestBackup) { 'Backups are available before deeper changes.' } else { 'Create a backup before larger cleanup or performance changes.' }
+    if ($null -eq $snapshot) {
+        $script:TxtHealthCleanup.Text = 'Run Health Check to estimate reclaimable space and biggest cleanup targets.'
+        $script:TxtHealthTls.Text = 'Run Health Check to inspect TLS posture and legacy protocol state.'
+        $script:TxtHealthDns.Text = 'Run Health Check to review current DNS providers and adapters.'
+        $script:TxtHealthStartup.Text = ('{0}' + [Environment]::NewLine + '{1}') -f $startup.Summary, $startup.Detail
+        $script:TxtHealthRegistry.Text = 'Safe registry trace groups will be counted here after the health check runs.'
+        $script:TxtHealthSafety.Text = $healthSafetySummary
+        $script:TxtHealthTips.Text = 'Health Check gives you a before-you-clean snapshot so you can see cleanup potential, security posture, DNS state, startup load, and safe registry traces in one place.'
+    }
+    else {
+        $script:TxtHealthCleanup.Text = ($snapshot.CleanupSummary + [Environment]::NewLine + $snapshot.CleanupDetail)
+        $script:TxtHealthTls.Text = ($snapshot.TlsSummary + [Environment]::NewLine + $snapshot.TlsDetail)
+        $script:TxtHealthDns.Text = ($snapshot.DnsSummary + [Environment]::NewLine + $snapshot.DnsDetail)
+        $script:TxtHealthStartup.Text = ($startup.Summary + [Environment]::NewLine + $startup.Detail)
+        $script:TxtHealthRegistry.Text = ($snapshot.RegistrySummary + [Environment]::NewLine + $snapshot.RegistryDetail)
+        $script:TxtHealthSafety.Text = ($healthSafetySummary + [Environment]::NewLine + $healthSafetyDetail)
+        $script:TxtHealthTips.Text = $snapshot.TipsText
+    }
+
+    if ($null -ne $script:BtnHealthReviewResults) {
+        $script:BtnHealthReviewResults.IsEnabled = ($null -ne $script:LastAnalyzeManifest)
+    }
 }
 
 function Set-KobraAnalyzeStatus {
@@ -1758,6 +2823,7 @@ function Set-KobraNavState {
         Results     = $script:BtnNavResults
         OperationProgress = $null
         Tools       = $script:BtnNavTools
+        Tls         = $script:BtnNavTls
         Startup     = $script:BtnNavStartup
         Utilities   = $script:BtnNavUtilities
         About       = $script:BtnNavAbout
@@ -1788,6 +2854,7 @@ function Switch-KobraView {
         Results     = $script:ViewResults
         OperationProgress = $script:ViewOperationProgress
         Tools       = $script:ViewTools
+        Tls         = $script:ViewTls
         Startup     = $script:ViewStartup
         Utilities   = $script:ViewUtilities
         About       = $script:ViewAbout
@@ -1800,6 +2867,10 @@ function Switch-KobraView {
     if ($views.ContainsKey($ViewName) -and $null -ne $views[$ViewName]) {
         $views[$ViewName].Visibility = 'Visible'
         $script:CurrentView = $ViewName
+        if ($ViewName -eq 'Tls') {
+            Write-KobraDebug -Message 'TLS / Security page opened.'
+            Update-KobraTlsPanel
+        }
     }
 
     $activeNavView = if ($ViewName -eq 'OperationProgress' -and -not [string]::IsNullOrWhiteSpace($script:OperationOriginView)) { $script:OperationOriginView } else { $ViewName }
@@ -1886,6 +2957,7 @@ function Refresh-KobraStartupList {
     $script:StartupList.ItemsSource = $bindingList
     Invoke-KobraUiRefresh
     Write-KobraUiLog -Message ("Startup entries loaded: {0}" -f $bindingList.Count)
+    Update-KobraHealthPage
 }
 
 function Invoke-KobraOpenUri {
@@ -1981,12 +3053,12 @@ function Toggle-KobraLogPanel {
     $current = $script:LogRow.Height
     if ($current.Value -le 0) {
         $script:LogRow.Height = New-Object System.Windows.GridLength(220)
-        $script:BtnToggleLog.Content = 'Hide advanced log'
+        $script:BtnToggleLog.Content = 'Hide support log'
         Write-KobraUiLog -Message 'Log panel expanded.'
     }
     else {
         $script:LogRow.Height = New-Object System.Windows.GridLength(0)
-        $script:BtnToggleLog.Content = 'Show advanced log'
+        $script:BtnToggleLog.Content = 'Show support log'
         Write-KobraUiLog -Message 'Log panel collapsed.'
     }
     Invoke-KobraUiRefresh
@@ -2004,12 +3076,18 @@ elseif (Test-Path -LiteralPath $script:LogoPath) {
     $script:KobraLogo.Source = New-Object System.Windows.Media.Imaging.BitmapImage($uri)
 }
 
+if ($null -ne $script:AboutLogo -and (Test-Path -LiteralPath $script:AboutLogoPath)) {
+    $aboutUri = New-Object Uri($script:AboutLogoPath)
+    $script:AboutLogo.Source = New-Object System.Windows.Media.Imaging.BitmapImage($aboutUri)
+}
+
 if ($null -ne $script:CmbDnsProvider -and $script:CmbDnsProvider.PSObject.Properties.Name -contains 'SelectedIndex') { $script:CmbDnsProvider.SelectedIndex = 0 }
 $script:LogRow.Height = New-Object System.Windows.GridLength(0)
-if ($null -ne $script:BtnToggleLog) { $script:BtnToggleLog.Content = 'Show advanced log' }
+if ($null -ne $script:BtnToggleLog) { $script:BtnToggleLog.Content = 'Show support log' }
 Update-KobraDnsControls
 Update-KobraRegistryBackupStatusUi
 $script:StatusTextBox.Clear()
+Update-KobraDebugLoggingHint
 Write-KobraUiLog -Message 'KobraOptimizer ready.'
 Write-KobraUiLog -Message ("Version: {0}" -f $script:AppVersion)
 Write-KobraUiLog -Message ("Log file: {0}" -f $script:LogFile)
@@ -2021,20 +3099,33 @@ Write-KobraUiLog -Message ("Project root: {0}" -f $script:ProjectRoot)
 Write-KobraUiLog -Message ("Font: {0}" -f $fontUsed)
 Write-KobraUiLog -Message 'Tip: Analyze first to estimate reclaimable space.' -NoTimestamp
 Write-KobraUiLog -Message 'Tip: Startup Manager works on Run keys and Startup folders.' -NoTimestamp
-Write-KobraUiLog -Message 'Tip: Analyze writes a delete manifest to C:\Temp\KobraOptimizer\Manifests.' -NoTimestamp
 Update-KobraResultsPanel -CategorySummary @() -TotalRecords 0 -TotalBytes 0
 Update-KobraLastActionStatus -Status 'No scan yet'
-Set-KobraAnalyzeStatus -Title 'Quick Scan is ready' -SubTitle 'Run the recommended scan here, or open Custom Clean to fine-tune exactly what Kobra reviews.'
+Set-KobraAnalyzeStatus -Title 'Health Check is ready' -SubTitle 'Run a machine health snapshot here, or open Custom Clean to fine-tune exactly what Kobra reviews.'
 
 if ($null -ne $script:ChkDnsProfile) { $script:ChkDnsProfile.Add_Click({ Update-KobraDnsControls }) }
 if ($null -ne $script:ChkStartupShowMicrosoft) { $script:ChkStartupShowMicrosoft.Add_Click({ Refresh-KobraStartupList }) }
 if ($null -ne $script:BtnToggleLog) { $script:BtnToggleLog.Add_Click({ Toggle-KobraLogPanel }) }
+if ($null -ne $script:ChkDebugLogging) {
+    $script:ChkDebugLogging.Add_Click({
+        $enabled = [bool]$script:ChkDebugLogging.IsChecked
+        Set-KobraDebugLogging -Enabled $enabled
+        Update-KobraDebugLoggingHint
+        if ($enabled) {
+            Write-KobraUiLog -Message ("Support logging enabled for this session: {0}" -f $script:DebugLogFile)
+        }
+        else {
+            Write-KobraUiLog -Message 'Support logging disabled.'
+        }
+    })
+}
 
 $script:BtnNavDashboard.Add_Click({ Switch-KobraView -ViewName 'Dashboard' })
 $script:BtnNavAnalyze.Add_Click({ Switch-KobraView -ViewName 'Analyze' })
 $script:BtnNavCustomClean.Add_Click({ Switch-KobraView -ViewName 'CustomClean' })
 $script:BtnNavResults.Add_Click({ Switch-KobraView -ViewName 'Results' })
 $script:BtnNavTools.Add_Click({ Switch-KobraView -ViewName 'Tools' })
+$script:BtnNavTls.Add_Click({ Switch-KobraView -ViewName 'Tls' })
 $script:BtnNavStartup.Add_Click({ Switch-KobraView -ViewName 'Startup' })
 $script:BtnNavUtilities.Add_Click({ Switch-KobraView -ViewName 'Utilities' })
 $script:BtnNavAbout.Add_Click({ Switch-KobraView -ViewName 'About' })
@@ -2046,9 +3137,230 @@ $script:BtnDashboardStartup.Add_Click({ Switch-KobraView -ViewName 'Startup' })
 
 $script:BtnQuickScanCustomize.Add_Click({ Switch-KobraView -ViewName 'CustomClean' })
 $script:BtnQuickScanBackup.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnCreateBackup })
+if ($null -ne $script:BtnHealthReviewResults) { $script:BtnHealthReviewResults.Add_Click({ Switch-KobraView -ViewName 'Results' }) }
 $script:BtnCustomAnalyze.Add_Click({ $script:CurrentResultsScope = 'All'; Switch-KobraView -ViewName 'Analyze'; Invoke-KobraButtonClick -Button $script:BtnAnalyze })
 $script:BtnPerformanceApply.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnRunSelected })
 $script:BtnPerformanceBackup.Add_Click({ Invoke-KobraButtonClick -Button $script:BtnCreateBackup })
+
+if ($null -ne $script:BtnTlsScan) {
+    $script:BtnTlsScan.Add_Click({
+        try {
+            Switch-KobraView -ViewName 'Tls'
+            $script:TlsScanState = Get-KobraTlsScanState -Log
+            $script:TlsScanCompleted = $true
+            $script:TlsPreviewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset (Get-KobraTlsPreset)
+            Update-KobraTlsPanel
+        }
+        catch {
+            Write-KobraDebug -Message ('TLS scan failed: ' + $_.Exception.Message)
+            try { Write-KobraDebug -Message ('TLS scan scriptstack: ' + $_.ScriptStackTrace) } catch {}
+            Write-KobraUiLog -Message (("TLS scan failed: {0}") -f $_.Exception.Message)
+            [System.Windows.MessageBox]::Show($_.Exception.Message, 'KobraOptimizer - TLS Scan', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning) | Out-Null
+        }
+    })
+}
+
+if ($null -ne $script:BtnTlsRecommend) {
+    $script:BtnTlsRecommend.Add_Click({
+        if ($null -ne $script:CmbTlsPreset) {
+            $script:CmbTlsPreset.SelectedIndex = 0
+        }
+        if (-not $script:TlsScanCompleted -or $null -eq $script:TlsScanState) {
+            $script:TlsScanState = Get-KobraTlsScanState -Log
+            $script:TlsScanCompleted = $true
+        }
+        $script:TlsPreviewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset 'recommended'
+        Update-KobraTlsPanel
+        [System.Windows.MessageBox]::Show('Recommended / Modern baseline selected. Review the current state, then use Apply TLS Baseline when you are ready.', 'KobraOptimizer - TLS Recommendation', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) | Out-Null
+    })
+}
+
+if ($null -ne $script:BtnTlsPreview) {
+    $script:BtnTlsPreview.Add_Click({
+        try {
+            if (-not $script:TlsScanCompleted -or $null -eq $script:TlsScanState) {
+                [System.Windows.MessageBox]::Show('Run Scan TLS first so Kobra can build a safe preview from the current system state.', 'KobraOptimizer - TLS Preview', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) | Out-Null
+                return
+            }
+
+            $script:TlsPreviewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset (Get-KobraTlsPreset)
+            Update-KobraTlsPanel
+            Write-KobraUiLog -Message 'TLS preview rebuilt from the current scan and selected profile.'
+        }
+        catch {
+            Write-KobraUiLog -Message (("TLS preview failed: {0}") -f $_.Exception.Message)
+        }
+    })
+}
+
+if ($null -ne $script:BtnTlsBackupLocation) {
+    $script:BtnTlsBackupLocation.Add_Click({
+        try {
+            $selectedPath = Select-KobraTlsBackupFolder
+            if (-not [string]::IsNullOrWhiteSpace($selectedPath)) {
+                Write-KobraUiLog -Message ("TLS backup location selected: {0}" -f $selectedPath)
+                Update-KobraTlsPanel
+            }
+        }
+        catch {
+            Write-KobraDebug -Message ('TLS backup location selection failed: ' + $_.Exception.Message)
+            Write-KobraUiLog -Message (("TLS backup location selection failed: {0}") -f $_.Exception.Message)
+        }
+    })
+}
+
+if ($null -ne $script:BtnTlsBackup) {
+    $script:BtnTlsBackup.Add_Click({
+        Set-KobraButtonsEnabled -Enabled $false
+        Show-KobraOperationView -Status 'Backing up TLS settings' -Detail 'Exporting TLS and .NET registry branches.' -OriginView 'Tls' -Indeterminate
+
+        try {
+            Write-KobraDebug -Message 'TLS backup started.'
+            Write-KobraUiLog -Message 'Creating TLS backup bundle...' -BlankLine
+            $script:LastTlsBackup = Invoke-KobraTlsBackup -BackupRoot (Get-KobraTlsBackupRoot) -Log ${function:Write-KobraUiLog}
+            Write-KobraDebug -Message ("TLS backup completed: {0}" -f $script:LastTlsBackup.BackupPath)
+            Update-KobraTlsPanel
+            Update-KobraDashboard
+            Complete-KobraOperationView -Status 'TLS backup ready' -Detail 'The TLS backup bundle was created successfully.' -NextView 'Tls'
+        }
+        catch {
+            Write-KobraDebug -Message ('TLS backup failed: ' + $_.Exception.Message)
+            try { Write-KobraDebug -Message ('TLS backup scriptstack: ' + $_.ScriptStackTrace) } catch {}
+            Write-KobraUiLog -Message (("TLS backup failed: {0}") -f $_.Exception.Message)
+            Update-KobraOperationView -Status 'TLS backup failed' -Detail $_.Exception.Message -Value 0
+        }
+        finally {
+            Set-KobraButtonsEnabled -Enabled $true
+        }
+    })
+}
+
+if ($null -ne $script:BtnTlsApply) {
+    $script:BtnTlsApply.Add_Click({
+        if (-not $script:TlsScanCompleted -or $null -eq $script:TlsScanState) {
+            [System.Windows.MessageBox]::Show('Run Scan TLS first. Apply only works from a successful scan and preview.', 'KobraOptimizer - TLS Apply', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) | Out-Null
+            return
+        }
+
+        $preset = Get-KobraTlsPreset
+        if ($preset -ne 'recommended') {
+            [System.Windows.MessageBox]::Show('Only the Recommended / Modern TLS baseline is wired in this build. Compatible and Strict remain review-only for now.', 'KobraOptimizer - TLS Apply', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) | Out-Null
+            return
+        }
+
+        $script:TlsPreviewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset $preset
+        Update-KobraTlsPanel
+
+        $message = "Kobra will create a TLS-specific backup, optionally create a restore point, and then apply only the previewed Recommended / Modern baseline.`r`n`r`nThis page is isolated from Health Check and Custom Clean.`r`n`r`nContinue?"
+        $confirm = [System.Windows.MessageBox]::Show($message, 'KobraOptimizer - Apply TLS Baseline', [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) {
+            return
+        }
+
+        Set-KobraButtonsEnabled -Enabled $false
+        Show-KobraOperationView -Status 'Applying TLS baseline' -Detail 'Creating backup bundle and applying the previewed modern protocol settings.' -OriginView 'Tls' -Indeterminate
+
+        try {
+            $changeSet = @($script:TlsPreviewState.Changes)
+            if ($changeSet.Count -eq 0) {
+                Write-KobraDebug -Message 'TLS apply found no pending changes.'
+                $script:TlsApplySummary = 'Changed: 0 | Skipped: 0 | Already compliant: all scanned TLS settings matched the selected baseline. Reboot required: No'
+                Update-KobraTlsPanel
+                Complete-KobraOperationView -Status 'TLS already compliant' -Detail 'No registry changes were needed for the selected baseline.' -NextView 'Tls'
+                return
+            }
+
+            Write-KobraUiLog -Message 'TLS baseline apply started...' -BlankLine
+            Write-KobraDebug -Message ('TLS apply change count=' + $changeSet.Count)
+            Write-KobraDebug -Message 'TLS backup started before apply.'
+            $workerResult = Invoke-KobraTlsWorkerProcess -Mode Apply -BackupRoot (Get-KobraTlsBackupRoot) -CreateRestorePoint ([bool]($null -ne $script:ChkTlsRestorePoint -and [bool]$script:ChkTlsRestorePoint.IsChecked)) -Changes $changeSet
+            $script:LastTlsBackup = [pscustomobject]@{ BackupPath = $workerResult.BackupPath }
+            Write-KobraUiLog -Message (("TLS backup bundle ready: {0}") -f $workerResult.BackupPath)
+            Write-KobraDebug -Message ("TLS backup completed before apply: {0}" -f $workerResult.BackupPath)
+
+            $changedSettingCount = @($script:TlsPreviewState.MatrixRows | Where-Object { $_.ActionText -in @('Disable explicitly','Enable explicitly','Enable strong crypto flags') }).Count
+            $skippedSettingCount = @($script:TlsPreviewState.MatrixRows | Where-Object { $_.ActionText -eq 'Unsupported on this OS - skipped' }).Count
+            $alreadyCompliantCount = @($script:TlsPreviewState.MatrixRows | Where-Object { $_.ActionText -in @('Already disabled','Already enabled','Keep OS default') }).Count
+            $script:TlsApplySummary = ('Changed: {0} | Skipped: {1} | Already compliant: {2} | Reboot required: {3} | Backup: {4}' -f $changedSettingCount, $skippedSettingCount, $alreadyCompliantCount, $(if ([bool]$workerResult.RebootRequired) { 'Yes' } else { 'No' }), $workerResult.BackupPath)
+            Write-KobraDebug -Message ('TLS result summary: ' + $script:TlsApplySummary)
+            Write-KobraDebug -Message ('TLS reboot-needed flag: ' + $workerResult.RebootRequired)
+            Write-KobraUiLog -Message ('TLS result summary: ' + $script:TlsApplySummary)
+
+            $script:TlsScanState = Get-KobraTlsScanState -Log
+            $script:TlsPreviewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset $preset
+            Update-KobraTlsPanel
+            Update-KobraDashboard
+            Complete-KobraOperationView -Status 'TLS baseline applied' -Detail 'Recommended modern TLS settings were applied. Review the result summary for changed, skipped, and compliant items.' -NextView 'Tls'
+        }
+        catch {
+            Write-KobraDebug -Message ('TLS apply failed: ' + $_.Exception.Message)
+            try { Write-KobraDebug -Message ('TLS apply scriptstack: ' + $_.ScriptStackTrace) } catch {}
+            Write-KobraUiLog -Message (("TLS baseline apply failed: {0}") -f $_.Exception.Message)
+            Update-KobraOperationView -Status 'TLS apply failed' -Detail $_.Exception.Message -Value 0
+        }
+        finally {
+            Set-KobraButtonsEnabled -Enabled $true
+        }
+    })
+}
+
+if ($null -ne $script:BtnTlsRestore) {
+    $script:BtnTlsRestore.Add_Click({
+        $backupPath = Get-KobraLatestTlsBackupPath
+        if ([string]::IsNullOrWhiteSpace($backupPath)) {
+            [System.Windows.MessageBox]::Show('No TLS backup was found yet. Create a TLS backup first.', 'KobraOptimizer - Restore TLS Backup', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) | Out-Null
+            return
+        }
+
+        $confirm = [System.Windows.MessageBox]::Show(("Kobra will restore the latest TLS backup:`r`n{0}`r`n`r`nContinue?" -f $backupPath), 'KobraOptimizer - Restore TLS Backup', [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) {
+            return
+        }
+
+        Set-KobraButtonsEnabled -Enabled $false
+        Show-KobraOperationView -Status 'Restoring TLS backup' -Detail 'Importing the most recent TLS backup bundle.' -OriginView 'Tls' -Indeterminate
+
+        try {
+            Write-KobraDebug -Message ("TLS restore started: {0}" -f $backupPath)
+            $restoreSummary = Invoke-KobraTlsWorkerProcess -Mode Restore -BackupRoot (Get-KobraTlsBackupRoot) -RestoreBackupPath $backupPath
+            $script:TlsApplySummary = ('TLS backup restored from {0}. Imported files: {1}. Reboot required: {2}' -f $backupPath, $restoreSummary.ImportedCount, $(if ([bool]$restoreSummary.RebootRequired) { 'Yes' } else { 'No' }))
+            Write-KobraDebug -Message ('TLS result summary: ' + $script:TlsApplySummary)
+            Write-KobraDebug -Message ('TLS reboot-needed flag: ' + $restoreSummary.RebootRequired)
+            $script:TlsScanState = Get-KobraTlsScanState -Log
+            $script:TlsScanCompleted = $true
+            $script:TlsPreviewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset (Get-KobraTlsPreset)
+            Update-KobraTlsPanel
+            Complete-KobraOperationView -Status 'TLS backup restored' -Detail 'The latest TLS backup was restored successfully.' -NextView 'Tls'
+        }
+        catch {
+            Write-KobraDebug -Message ('TLS restore failed: ' + $_.Exception.Message)
+            try { Write-KobraDebug -Message ('TLS restore scriptstack: ' + $_.ScriptStackTrace) } catch {}
+            Write-KobraUiLog -Message (("TLS restore failed: {0}") -f $_.Exception.Message)
+            Update-KobraOperationView -Status 'TLS restore failed' -Detail $_.Exception.Message -Value 0
+        }
+        finally {
+            Set-KobraButtonsEnabled -Enabled $true
+        }
+    })
+}
+
+if ($null -ne $script:CmbTlsPreset) {
+    if ($script:CmbTlsPreset.SelectedIndex -lt 0) {
+        $script:CmbTlsPreset.SelectedIndex = 0
+    }
+    $script:CmbTlsPreset.Add_SelectionChanged({
+        try {
+            if ($script:TlsScanCompleted -and $null -ne $script:TlsScanState) {
+                $script:TlsPreviewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset (Get-KobraTlsPreset)
+            }
+            Update-KobraTlsPanel
+        }
+        catch {
+            Write-KobraDebug -Message ('TLS preset selection failed: ' + $_.Exception.Message)
+        }
+    })
+}
+
 if ($null -ne $script:BtnSystemScan) { $script:BtnSystemScan.Add_Click({ Invoke-KobraScopeAnalyze -Scope 'System' }) }
 if ($null -ne $script:BtnSystemClean) { $script:BtnSystemClean.Add_Click({ Invoke-KobraScopeClean -Scope 'System' }) }
 if ($null -ne $script:BtnBrowserScan) { $script:BtnBrowserScan.Add_Click({ Invoke-KobraScopeAnalyze -Scope 'Browser' }) }
@@ -2109,11 +3421,11 @@ $script:BtnAnalyze.Add_Click({
     Write-KobraDebug -Message ('Selections at Analyze: ' + (Get-KobraDebugSelectionState))
     Set-KobraButtonsEnabled -Enabled $false
     $script:CurrentResultsScope = 'All'
-    Show-KobraOperationView -Status 'Kobra is analyzing your system...' -Detail 'Preparing the recommended scan path.' -OriginView 'Analyze' -Value 8
+    Show-KobraOperationView -Status 'Kobra is running a health check...' -Detail 'Preparing your cleanup, security, and startup snapshot.' -OriginView 'Analyze' -Value 8
 
     try {
-        Set-KobraAnalyzeStatus -Title 'Analyzing your system' -SubTitle 'Reviewing selected cleanup categories and browser data.'
-        Write-KobraUiLog -Message 'Starting analysis scan...' -BlankLine
+        Set-KobraAnalyzeStatus -Title 'Running Health Check' -SubTitle 'Reviewing cleanup potential, TLS posture, DNS state, startup load, and safe registry traces.'
+        Write-KobraUiLog -Message 'Starting health check...' -BlankLine
 
         $cleanupTargets = @(Get-KobraCleanupTargetsFromUi)
         Write-KobraDebug -Message ('RunSelected cleanupTargets=' + $(if ((Get-KobraSafeCount $cleanupTargets) -gt 0) { $cleanupTargets -join ',' } else { '<none>' }))
@@ -2138,7 +3450,7 @@ $script:BtnAnalyze.Add_Click({
         $totalBytes = [int64]0
 
         Set-KobraAnalyzeStatus -Title 'Scanning cleanup targets' -SubTitle 'Inspecting temp files, caches, and recycle locations.'
-        Update-KobraOperationView -Status 'Kobra is analyzing your system...' -Detail 'Inspecting system junk, temp files, and recycle locations.' -Value 30
+        Update-KobraOperationView -Status 'Kobra is running a health check...' -Detail 'Inspecting system junk, temp files, and recycle locations.' -Value 24
         Write-KobraUiLog -Message 'Cleanup targets:' -NoTimestamp
         foreach ($item in $cleanupPreview) {
             if ($null -eq $item) { continue }
@@ -2148,7 +3460,7 @@ $script:BtnAnalyze.Add_Click({
 
         if ((Get-KobraSafeCount $browserPreview) -gt 0) {
         Set-KobraAnalyzeStatus -Title 'Scanning browser data' -SubTitle 'Counting browser cache, cookie, and history targets.'
-        Update-KobraOperationView -Status 'Kobra is analyzing your system...' -Detail 'Counting browser cache, cookie, and history targets.' -Value 58
+        Update-KobraOperationView -Status 'Kobra is running a health check...' -Detail 'Counting browser cache, cookie, and history targets.' -Value 44
             Write-KobraUiLog -Message 'Browser targets:' -NoTimestamp
             foreach ($item in $browserPreview) {
                 if ($null -eq $item) { continue }
@@ -2163,7 +3475,7 @@ $script:BtnAnalyze.Add_Click({
 
         if ((Get-KobraSafeCount $registryPreview) -gt 0) {
             Set-KobraAnalyzeStatus -Title 'Scanning registry traces' -SubTitle 'Counting safe MRU and typed-history registry items for review.'
-            Update-KobraOperationView -Status 'Kobra is analyzing your system...' -Detail 'Reviewing safe MRU and typed-history registry traces.' -Value 74
+            Update-KobraOperationView -Status 'Kobra is running a health check...' -Detail 'Reviewing safe MRU and typed-history registry traces.' -Value 58
             Write-KobraUiLog -Message 'Registry targets:' -NoTimestamp
             foreach ($item in $registryPreview) {
                 if ($null -eq $item) { continue }
@@ -2187,6 +3499,13 @@ $script:BtnAnalyze.Add_Click({
             }
         }
 
+        Set-KobraAnalyzeStatus -Title 'Checking TLS and DNS posture' -SubTitle 'Inspecting current security and network state for the health summary.'
+        Update-KobraOperationView -Status 'Kobra is running a health check...' -Detail 'Inspecting current TLS, DNS, startup, and safety posture.' -Value 76
+        $script:TlsScanState = Get-KobraTlsScanState -Log
+        $script:TlsScanCompleted = $true
+        $script:TlsPreviewState = Get-KobraTlsPreviewPlan -ScanState $script:TlsScanState -Preset (Get-KobraTlsPreset)
+        Update-KobraTlsPanel
+
         $manifest = New-KobraDeleteManifest -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents -IncludeRegistryTraces (Test-KobraRegistryCleanupSelected)
         Write-KobraDebug -Message ('RunSelected manifest candidateCount=' + $manifest.CandidateCount + '; totalBytes=' + $manifest.TotalBytes + '; manifest=' + $manifest.ManifestPath)
         $script:LastAnalyzeManifest = $manifest
@@ -2194,50 +3513,23 @@ $script:BtnAnalyze.Add_Click({
         $script:LastAnalyzeTime = Get-Date
         $script:LastAnalyzeSelectionSignature = Get-KobraCurrentAnalyzeSelectionSignature -Scope 'All'
         $script:LastAnalyzeScope = 'All'
+        $script:LastHealthSnapshot = New-KobraHealthSnapshot -Manifest $manifest -TlsState $script:TlsScanState
         Update-KobraResultsPanel -CategorySummary $manifest.CategorySummary -TotalRecords $manifest.CandidateCount -TotalBytes $manifest.TotalBytes
+        Update-KobraHealthPage
+        Update-KobraDashboard
         Update-KobraLastActionStatus -Status 'Scan completed'
         Write-KobraUiLog -Message ("Delete manifest written: {0}" -f $manifest.ManifestPath) -NoTimestamp
         Write-KobraUiLog -Message ("Estimated reclaimable space: {0:N2} MB" -f ($totalBytes / 1MB))
         Write-KobraUiLog -Message ("Estimated removable records: {0:N0}" -f $manifest.CandidateCount)
-        Set-KobraAnalyzeStatus -Title 'Analysis complete' -SubTitle 'Your scan results are ready to review.'
+        Write-KobraUiLog -Message ("Health snapshot updated: {0}" -f $script:LastHealthSnapshot.LastUpdated.ToString('MMM d, h:mm tt')) -NoTimestamp
+        Set-KobraAnalyzeStatus -Title 'Health Check complete' -SubTitle 'Your cleanup, security, DNS, startup, and safety snapshot is ready below.'
         Reset-KobraSectionReadiness
-        Complete-KobraOperationView -Status 'Analysis complete' -Detail 'Your scan results are ready to review.' -NextView 'Results'
+        Complete-KobraOperationView -Status 'Health Check complete' -Detail 'Your machine snapshot is ready. Review the health cards below or open Cleanup Results.' -NextView 'Analyze'
     }
     catch {
-        Set-KobraAnalyzeStatus -Title 'Analysis failed' -SubTitle $_.Exception.Message
-        Write-KobraUiLog -Message ("Analysis failed: {0}" -f $_.Exception.Message)
-        Update-KobraOperationView -Status 'Analysis failed' -Detail $_.Exception.Message -Value 0
-    }
-    finally {
-        Set-KobraButtonsEnabled -Enabled $true
-    }
-})
-
-$script:BtnQuickShed.Add_Click({
-    Set-KobraButtonsEnabled -Enabled $false
-    Show-KobraOperationView -Status 'Quick Shed in Progress' -Detail 'Preparing the default cleanup path.' -OriginView 'Dashboard' -Indeterminate
-
-    try {
-        $defaultTargets = @('UserTemp','SystemTemp','ThumbnailCache','ShaderCache','RecycleBin')
-        $manifest = New-KobraDeleteManifest -CleanupTargets $defaultTargets -BrowserTargets @() -BrowserComponents @('Cache')
-
-        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $defaultTargets -BrowserTargets @() -BrowserComponents @('Cache') -DoTls $false -DoNetwork $false -DoDnsFlush $false -DoDnsProfile $false -DoHpDebloat $false -DoRestore $false -DoRegistryTraces $false -DnsProfile '' -ManifestInfo $manifest
-        if (-not $confirmed) {
-            Write-KobraUiLog -Message 'Quick Shed canceled by user.' -BlankLine
-            Set-KobraProgress 0
-            return
-        }
-
-        Update-KobraOperationView -Status 'Quick Shed in Progress' -Detail 'Removing default junk and cache targets.' -Indeterminate
-        Write-KobraUiLog -Message 'Quick Shed started...' -BlankLine
-        Write-KobraUiLog -Message ("Delete manifest: {0}" -f $manifest.ManifestPath)
-        Invoke-KobraShed -Targets $defaultTargets -Log ${function:Write-KobraUiLog}
-        Write-KobraUiLog -Message 'Quick Shed complete.'
-        Complete-KobraOperationView -Status 'Quick Shed complete' -Detail 'Default cleanup finished.' -NextView 'Results'
-    }
-    catch {
-        Write-KobraUiLog -Message ("Quick Shed failed: {0}" -f $_.Exception.Message)
-        Update-KobraOperationView -Status 'Quick Shed failed' -Detail $_.Exception.Message -Value 0
+        Set-KobraAnalyzeStatus -Title 'Health Check failed' -SubTitle $_.Exception.Message
+        Write-KobraUiLog -Message ("Health Check failed: {0}" -f $_.Exception.Message)
+        Update-KobraOperationView -Status 'Health Check failed' -Detail $_.Exception.Message -Value 0
     }
     finally {
         Set-KobraButtonsEnabled -Enabled $true
@@ -2249,16 +3541,16 @@ $script:BtnCreateBackup.Add_Click({
     Show-KobraOperationView -Status 'Creating backup bundle' -Detail 'Preparing backup files and snapshots.' -OriginView 'Utilities' -Indeterminate
 
     try {
-        Write-KobraUiLog -Message 'Creating manual backup bundle...' -BlankLine
+        Write-KobraUiLog -Message 'Creating safety backup bundle...' -BlankLine
         $backup = Invoke-KobraSettingsBackup -BackupRoot $script:BackupRoot -Log ${function:Write-KobraUiLog}
         if ($null -ne $backup -and $backup.PSObject.Properties.Name -contains 'BackupPath') {
-            Write-KobraUiLog -Message ("Backup ready: {0}" -f $backup.BackupPath)
+            Write-KobraUiLog -Message ("Safety backup ready: {0}" -f $backup.BackupPath)
             Update-KobraDashboard
             if (Test-Path -LiteralPath $backup.BackupPath) {
                 Start-Process explorer.exe $backup.BackupPath
             }
         }
-        Complete-KobraOperationView -Status 'Backup complete' -Detail 'Your backup bundle is ready.' -NextView 'Utilities'
+        Complete-KobraOperationView -Status 'Safety backup complete' -Detail 'Your DNS, TLS, and network safety backup is ready in the Backups folder.' -NextView 'Utilities'
     }
     catch {
         Write-KobraUiLog -Message ("Backup failed: {0}" -f $_.Exception.Message)
@@ -2269,24 +3561,128 @@ $script:BtnCreateBackup.Add_Click({
     }
 })
 
-$script:BtnOpenLogs.Add_Click({
-    if (-not (Test-Path -LiteralPath $script:LogRoot)) {
-        $null = New-Item -Path $script:LogRoot -ItemType Directory -Force
-    }
-    Start-Process explorer.exe $script:LogRoot
-})
+if ($null -ne $script:BtnOpenLogs) {
+    $script:BtnOpenLogs.Add_Click({
+        if (-not (Test-Path -LiteralPath $script:LogRoot)) {
+            $null = New-Item -Path $script:LogRoot -ItemType Directory -Force
+        }
+        Start-Process explorer.exe $script:LogRoot
+    })
+}
 
-$script:BtnOpenManifests.Add_Click({
-    if (-not (Test-Path -LiteralPath $script:ManifestRoot)) {
-        $null = New-Item -Path $script:ManifestRoot -ItemType Directory -Force
-    }
-    Start-Process explorer.exe $script:ManifestRoot
-})
+if ($null -ne $script:BtnOpenSupportLog) {
+    $script:BtnOpenSupportLog.Add_Click({
+        if (-not $script:DebugEnabled -or [string]::IsNullOrWhiteSpace($script:DebugLogFile) -or -not (Test-Path -LiteralPath $script:DebugLogFile)) {
+            Write-KobraUiLog -Message 'Support log is not available yet. Enable support logging first.'
+            return
+        }
+        Start-Process notepad.exe $script:DebugLogFile
+    })
+}
+
+if ($null -ne $script:BtnSupportCreateRestorePoint) {
+    $script:BtnSupportCreateRestorePoint.Add_Click({
+        Set-KobraButtonsEnabled -Enabled $false
+        Show-KobraOperationView -Status 'Creating Windows Restore Point' -Detail 'Requesting a restore point from Windows.' -OriginView 'Utilities' -Indeterminate
+
+        try {
+            Write-KobraUiLog -Message 'Creating Windows Restore Point...' -BlankLine
+            Invoke-KobraGuard -Log ${function:Write-KobraUiLog}
+            Complete-KobraOperationView -Status 'Windows Restore Point created' -Detail 'Windows reported the restore-point request is complete. Review the support log for any system messages.' -NextView 'Utilities'
+        }
+        catch {
+            Write-KobraUiLog -Message ("Windows Restore Point failed: {0}" -f $_.Exception.Message)
+            Update-KobraOperationView -Status 'Windows Restore Point failed' -Detail $_.Exception.Message -Value 0
+        }
+        finally {
+            Set-KobraButtonsEnabled -Enabled $true
+        }
+    })
+}
+
+if ($null -ne $script:BtnSupportOpenSystemRestore) {
+    $script:BtnSupportOpenSystemRestore.Add_Click({
+        try {
+            Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\\rstrui.exe')
+        }
+        catch {
+            Write-KobraUiLog -Message ("Could not open System Restore: {0}" -f $_.Exception.Message)
+        }
+    })
+}
+
+if ($null -ne $script:BtnSupportRestoreDns) {
+    $script:BtnSupportRestoreDns.Add_Click({
+        $backupPath = Get-KobraLatestSafetyBackupPath
+        if ([string]::IsNullOrWhiteSpace($backupPath)) {
+            [System.Windows.MessageBox]::Show('No safety backup was found yet. Create a Safety Backup first.', 'KobraOptimizer - Restore DNS', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) | Out-Null
+            return
+        }
+
+        $confirm = [System.Windows.MessageBox]::Show(("Kobra will restore DNS settings from the latest safety backup:`r`n{0}`r`n`r`nContinue?" -f $backupPath), 'KobraOptimizer - Restore DNS', [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) {
+            return
+        }
+
+        Set-KobraButtonsEnabled -Enabled $false
+        Show-KobraOperationView -Status 'Restoring DNS settings' -Detail 'Applying DNS values from the latest safety backup.' -OriginView 'Utilities' -Indeterminate
+
+        try {
+            $dnsRestore = Invoke-KobraDnsRestore -BackupPath $backupPath -Log ${function:Write-KobraUiLog}
+            Write-KobraUiLog -Message ("DNS restore complete from: {0}" -f $dnsRestore.BackupPath)
+            Complete-KobraOperationView -Status 'DNS restore complete' -Detail 'The latest safety-backup DNS settings were restored successfully.' -NextView 'Utilities'
+        }
+        catch {
+            Write-KobraUiLog -Message ("DNS restore failed: {0}" -f $_.Exception.Message)
+            Update-KobraOperationView -Status 'DNS restore failed' -Detail $_.Exception.Message -Value 0
+        }
+        finally {
+            Set-KobraButtonsEnabled -Enabled $true
+        }
+    })
+}
+
+if ($null -ne $script:BtnSupportRestoreTls) {
+    $script:BtnSupportRestoreTls.Add_Click({
+        $backupPath = Get-KobraLatestSafetyBackupPath
+        if ([string]::IsNullOrWhiteSpace($backupPath)) {
+            [System.Windows.MessageBox]::Show('No safety backup was found yet. Create a Safety Backup first.', 'KobraOptimizer - Restore TLS', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) | Out-Null
+            return
+        }
+
+        $confirm = [System.Windows.MessageBox]::Show(("Kobra will restore TLS settings from the latest safety backup:`r`n{0}`r`n`r`nContinue?" -f $backupPath), 'KobraOptimizer - Restore TLS', [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) {
+            return
+        }
+
+        Set-KobraButtonsEnabled -Enabled $false
+        Show-KobraOperationView -Status 'Restoring TLS settings' -Detail 'Importing TLS-related registry values from the latest safety backup.' -OriginView 'Utilities' -Indeterminate
+
+        try {
+            $restoreSummary = Invoke-KobraTlsRestore -BackupPath $backupPath -Log ${function:Write-KobraUiLog}
+            Write-KobraUiLog -Message ("TLS restore complete from: {0}" -f $restoreSummary.BackupPath)
+            Complete-KobraOperationView -Status 'TLS restore complete' -Detail 'The latest safety-backup TLS settings were restored successfully. A restart may be required.' -NextView 'Utilities'
+        }
+        catch {
+            Write-KobraUiLog -Message ("TLS restore failed: {0}" -f $_.Exception.Message)
+            Update-KobraOperationView -Status 'TLS restore failed' -Detail $_.Exception.Message -Value 0
+        }
+        finally {
+            Set-KobraButtonsEnabled -Enabled $true
+        }
+    })
+}
 
 $script:BtnExit.Add_Click({
     Write-KobraUiLog -Message 'Exit requested by user.'
     $script:Window.Close()
 })
+
+if ($null -ne $script:BtnShare) {
+    $script:BtnShare.Add_Click({
+        Invoke-KobraOpenUri -Uri 'https://github.com/gsb005/KobraOptimizer/releases' -FriendlyName 'KobraOptimizer releases'
+    })
+}
 
 $script:BtnDonate.Add_Click({
     Invoke-KobraDonate
@@ -2328,16 +3724,6 @@ if ($null -ne $script:BtnResultsBackCustom) {
         Switch-KobraView -ViewName 'CustomClean'
     })
 }
-if ($null -ne $script:BtnResultsOpenDebugLog) {
-    $script:BtnResultsOpenDebugLog.Add_Click({
-        if (-not (Test-Path -LiteralPath $script:DebugLogFile)) {
-            Write-KobraUiLog -Message 'Debug log does not exist yet.'
-            return
-        }
-        Start-Process notepad.exe $script:DebugLogFile
-    })
-}
-
 $script:BtnRunSelected.Add_Click({
     Write-KobraDebug -Message 'BtnRunSelected clicked.'
     Write-KobraDebug -Message ('Selections at RunSelected: ' + (Get-KobraDebugSelectionState))
@@ -2353,7 +3739,7 @@ $script:BtnRunSelected.Add_Click({
         $cleanupTargets = @(Get-KobraCleanupTargetsFromUi)
         $browserTargets = @(Get-KobraBrowserTargetsFromUi)
         $browserComponents = @(Get-KobraBrowserComponentsFromUi)
-        $doTls         = [bool]$script:ChkRegistry.IsChecked
+        $doTls         = $false
         $doNetwork     = [bool]$script:ChkNetwork.IsChecked
         $doDnsFlush    = [bool]$script:ChkDnsFlush.IsChecked
         $doDnsProfile  = [bool]$script:ChkDnsProfile.IsChecked
@@ -2372,14 +3758,13 @@ $script:BtnRunSelected.Add_Click({
         $stepCount = 0
         if ((Get-KobraSafeCount $cleanupTargets) -gt 0) { $stepCount++ }
         if ((Get-KobraSafeCount $browserTargets) -gt 0) { $stepCount++ }
-        if ($doTls)        { $stepCount++ }
         if ($doNetwork)    { $stepCount++ }
         if ($doDnsFlush)   { $stepCount++ }
         if ($doDnsProfile) { $stepCount++ }
         if ($doHpDebloat)  { $stepCount++ }
         if ($doRegistryTraces) { $stepCount++ }
         if (Test-KobraRegistryBackupSelected) { $stepCount++ }
-        if ($doRestore -and ($doTls -or $doNetwork -or $doHpDebloat)) { $stepCount++ }
+        if ($doRestore -and ($doNetwork -or $doHpDebloat)) { $stepCount++ }
 
         if ($stepCount -eq 0) {
             Write-KobraUiLog -Message 'Nothing selected. Check at least one option first.' -BlankLine
@@ -2391,7 +3776,7 @@ $script:BtnRunSelected.Add_Click({
         if ((Get-KobraSafeCount $cleanupTargets) -gt 0 -or (Get-KobraSafeCount $browserTargets) -gt 0 -or $doRegistryTraces) {
             $manifest = $script:LastAnalyzeManifest
         }
-        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents -DoTls $doTls -DoNetwork $doNetwork -DoDnsFlush $doDnsFlush -DoDnsProfile $doDnsProfile -DoHpDebloat $doHpDebloat -DoRestore $doRestore -DoRegistryTraces $doRegistryTraces -DnsProfile $dnsProfile -ManifestInfo $manifest
+        $confirmed = Show-KobraExecutionConfirmation -CleanupTargets $cleanupTargets -BrowserTargets $browserTargets -BrowserComponents $browserComponents -DoTls $false -DoNetwork $doNetwork -DoDnsFlush $doDnsFlush -DoDnsProfile $doDnsProfile -DoHpDebloat $doHpDebloat -DoRestore $doRestore -DoRegistryTraces $doRegistryTraces -DnsProfile $dnsProfile -ManifestInfo $manifest
         if (-not $confirmed) {
             Write-KobraUiLog -Message 'Execution canceled by user.' -BlankLine
             Set-KobraProgress 0
@@ -2407,7 +3792,7 @@ $script:BtnRunSelected.Add_Click({
         }
         Update-KobraOperationView -Status 'Executing selected tasks' -Detail 'Running cleanup and optimization tasks now.' -Value 8
 
-        if ($doRestore -and ($doTls -or $doNetwork -or $doHpDebloat)) {
+        if ($doRestore -and ($doNetwork -or $doHpDebloat)) {
             Update-KobraOperationView -Status 'Executing selected tasks' -Detail 'Creating a restore point before deeper changes.'
             Write-KobraUiLog -Message 'Creating restore point before system changes...'
             Invoke-KobraGuard -Log ${function:Write-KobraUiLog}
@@ -2442,12 +3827,6 @@ $script:BtnRunSelected.Add_Click({
         if ($doRegistryTraces) {
             Update-KobraOperationView -Status 'Cleaning selected items' -Detail 'Cleaning the selected registry trace groups.'
             $executionResults += @(Invoke-KobraRegistryTraceCleanup -Log ${function:Write-KobraUiLog} -BackupInfo $registryBackup)
-            $currentStep++
-            Set-KobraProgress ([math]::Round(($currentStep / $stepCount) * 100))
-        }
-
-        if ($doTls) {
-            Invoke-KobraTlsHardening -Log ${function:Write-KobraUiLog}
             $currentStep++
             Set-KobraProgress ([math]::Round(($currentStep / $stepCount) * 100))
         }
